@@ -1494,9 +1494,19 @@ const FirebaseApp = (() => {
   async function checkAndIncrementUsage() {
     if (!_currentUser) return { allowed: false, reason: 'not_logged_in' };
 
-    // ★ 테스트 계정 — 사용량 제한 없음
-    const TEST_EMAILS = ['jamsilsexy@gmail.com'];
-    if (TEST_EMAILS.includes(_currentUser.email)) return { allowed: true };
+    // ★ P0-1: 하드코딩 이메일 제거. Firebase Custom Claims(서버 발급 토큰)로 대체.
+    //   admin/tester claim 보유자만 사용량 제한 면제. 클라이언트 코드를
+    //   임의 수정해도 token이 위조 불가능하므로 안전. (claim 부여는 Cloud
+    //   Functions의 setAdminClaim/setTesterClaim 통해서만 가능 — P0-1 B파트에서 배포)
+    try {
+      const tokenResult = await _currentUser.getIdTokenResult(false);
+      if (tokenResult.claims.admin === true || tokenResult.claims.tester === true) {
+        return { allowed: true, reason: 'privileged' };
+      }
+    } catch (e) {
+      console.warn('[AuthGuard] token claims 조회 실패:', e);
+      // 실패 시 일반 사용자 흐름으로 진행 (보안상 보수적)
+    }
 
     const doc = _userDoc || await _loadUserDoc(_currentUser.uid);
 
@@ -1649,6 +1659,73 @@ const FirebaseApp = (() => {
     sendVerificationEmail, checkEmailVerified, sendPasswordReset, deleteAccount,
   };
 })();
+
+/* ──────────────────────────────────────────────────────────────
+ * AuthGuard (P0-1 step2 신규)
+ *   클라이언트 측 권한 확인 모듈. UI 표시용도로만 사용.
+ *   진짜 보안은 Cloud Functions와 Security Rules에서 처리.
+ *
+ *   향후 모듈 분리 가능하도록 독립적 IIFE로 작성.
+ *   다른 코드는 AuthGuard.isAdmin() / AuthGuard.isTester() 만 호출하면 됨.
+ * ────────────────────────────────────────────────────────────── */
+const AuthGuard = (() => {
+  let _cached = { admin: false, tester: false, loadedAt: 0 };
+  const CACHE_MS = 5 * 60 * 1000; // 5분 캐시 (불필요한 token refresh 방지)
+
+  /**
+   * 현재 로그인 유저의 Custom Claims 조회.
+   * @param {boolean} forceRefresh - 권한 변경 직후 등 강제 새로고침이 필요할 때 true
+   */
+  async function refresh(forceRefresh = false) {
+    const user = firebase.auth().currentUser;
+    if (!user) {
+      _cached = { admin: false, tester: false, loadedAt: Date.now() };
+      return _cached;
+    }
+    try {
+      const result = await user.getIdTokenResult(forceRefresh);
+      _cached = {
+        admin:    result.claims.admin === true,
+        tester:   result.claims.tester === true,
+        loadedAt: Date.now(),
+      };
+    } catch (e) {
+      console.warn('[AuthGuard] refresh 실패:', e);
+      _cached = { admin: false, tester: false, loadedAt: Date.now() };
+    }
+    return _cached;
+  }
+
+  /**
+   * 캐시 만료 시 자동 재조회. UI 렌더링 직전에 호출.
+   */
+  async function ensureFresh() {
+    if (Date.now() - _cached.loadedAt > CACHE_MS) {
+      await refresh(false);
+    }
+    return _cached;
+  }
+
+  function isAdmin()  { return _cached.admin === true; }
+  function isTester() { return _cached.tester === true; }
+  function isPrivileged() { return isAdmin() || isTester(); }
+
+  /** 로그인/로그아웃 시 자동 갱신 — init()을 앱 진입 시점에 1회 호출 */
+  function init() {
+    firebase.auth().onAuthStateChanged(async (user) => {
+      if (user) {
+        await refresh(false);
+      } else {
+        _cached = { admin: false, tester: false, loadedAt: Date.now() };
+      }
+    });
+  }
+
+  return { init, refresh, ensureFresh, isAdmin, isTester, isPrivileged };
+})();
+
+// 앱 시작 시 1회 초기화
+AuthGuard.init();
 
 /* ═══════════════════════════════════════════════════════════════
    00-B. AUTH UI — 로그인/가입 화면 제어
