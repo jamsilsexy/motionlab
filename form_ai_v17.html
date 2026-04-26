@@ -59,6 +59,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- ★ P0-1: Cloud Functions SDK — admin-only API 호출용 -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
@@ -1714,18 +1716,62 @@ const AuthGuard = (() => {
   function init() {
     firebase.auth().onAuthStateChanged(async (user) => {
       if (user) {
-        await refresh(false);
+        // ★ P0-1: 로그인 시 force refresh 1회.
+        //   이유: 부트스트랩 직후 또는 다른 admin이 권한을 부여한 직후
+        //   기존 토큰엔 새 claim이 반영 안 됨. forceRefresh=true로
+        //   서버에서 새 토큰을 재발급 받아야 한다.
+        await refresh(true);
       } else {
         _cached = { admin: false, tester: false, loadedAt: Date.now() };
       }
     });
   }
 
-  return { init, refresh, ensureFresh, isAdmin, isTester, isPrivileged };
+  /**
+   * ★ P0-1: admin-only UI 액션 직전에 호출.
+   *   캐시된 claim을 신뢰하지 않고 항상 서버에서 최신 토큰 받아 검증한다.
+   */
+  async function requirePrivilegedAction() {
+    await refresh(true);
+    if (!isPrivileged()) {
+      throw new Error('PRIVILEGE_DENIED');
+    }
+    return _cached;
+  }
+
+  return { init, refresh, ensureFresh, isAdmin, isTester, isPrivileged, requirePrivilegedAction };
 })();
 
 // 앱 시작 시 1회 초기화
 AuthGuard.init();
+
+/* ──────────────────────────────────────────────────────────────
+ * AdminAPI (P0-1 신규)
+ *   Cloud Functions 호출 래퍼. UI 코드는 이 모듈을 통해서만 호출.
+ * ────────────────────────────────────────────────────────────── */
+const AdminAPI = (() => {
+  const _functions = firebase.functions('asia-northeast3');
+
+  async function setAdmin(payload) {
+    const fn = _functions.httpsCallable('setAdminClaim');
+    const r  = await fn(payload);
+    return r.data;
+  }
+
+  async function setTester(payload) {
+    const fn = _functions.httpsCallable('setTesterClaim');
+    const r  = await fn(payload);
+    return r.data;
+  }
+
+  async function whoami() {
+    const fn = _functions.httpsCallable('whoami');
+    const r  = await fn({});
+    return r.data;
+  }
+
+  return { setAdmin, setTester, whoami };
+})();
 
 /* ═══════════════════════════════════════════════════════════════
    00-B. AUTH UI — 로그인/가입 화면 제어
