@@ -23,6 +23,34 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    /* ─────────────────────────────────────────────────────────
+       users/{uid} — 사용자 프로필 컬렉션
+       서버 전용 필드: plan, analysisCount, analysisResetDate
+         → 클라이언트 write 차단 (Cloud Functions만 변경 가능)
+         → 결제/사용량 우회 방지의 핵심 라인
+       ──────────────────────────────────────────────────────── */
+    match /users/{uid} {
+      // 본인 또는 admin만 read 가능
+      allow read: if isOwner(uid) || isAdmin();
+
+      // 신규 가입: 본인 uid + 필수 필드 + 서버 전용 필드 초기값 강제
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasAll(['plan', 'analysisCount', 'analysisResetDate', 'createdAt'])
+        && request.resource.data.plan == 'free'
+        && request.resource.data.analysisCount == 0;
+
+      // update: 본인이되 서버 전용 3개 필드 불변. admin은 자유 변경 가능.
+      allow update: if isAdmin() || (
+        isOwner(uid)
+        && request.resource.data.plan == resource.data.plan
+        && request.resource.data.analysisCount == resource.data.analysisCount
+        && request.resource.data.analysisResetDate == resource.data.analysisResetDate
+      );
+
+      // 본인 회원 탈퇴 또는 admin 강제 삭제
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
     // 명시되지 않은 모든 경로에 대한 기본 차단 규칙
     match /{document=**} {
       allow read, write: if false;
