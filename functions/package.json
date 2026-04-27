@@ -1,15 +1,20 @@
 {
     "name": "form-ai-functions",
     "description": "FORM AI v17 Cloud Functions — admin claim 발급 + admin-only API",
-    "engines": { "node": "18" },
+    "engines": {
+        "node": "18"
+    },
     "main": "index.js",
     "private": true,
     "dependencies": {
-      "firebase-admin": "^12.1.0",
-      "firebase-functions": "^5.0.1"
+        "firebase-admin": "^12.1.0",
+        "firebase-functions": "^5.0.1"
     },
     "scripts": {
-      "deploy": "firebase deploy --only functions",
-      "logs": "firebase functions:log"
+        "deploy": "firebase deploy --only functions",
+        "logs": "firebase functions:log"
+    },
+    "devDependencies": {
+        "prettier": "^3.8.3"
     }
-  }
+}

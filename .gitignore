@@ -1,2 +1,11 @@
-scripts/service-account.json
+﻿scripts/service-account.json
 functions/node_modules/
+node_modules/
+*.log
+npm-debug.log*
+.env
+.env.local
+.DS_Store
+Thumbs.db
+firebase-debug.log
+.firebase/

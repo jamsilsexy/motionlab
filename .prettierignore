@@ -1,0 +1,6 @@
+﻿node_modules
+.git
+package-lock.json
+*.min.js
+*.min.css
+firestore.rules
