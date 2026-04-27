@@ -13,9 +13,9 @@
 'use strict';
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { setGlobalOptions }   = require('firebase-functions/v2');
-const admin                  = require('firebase-admin');
-const logger                 = require('firebase-functions/logger');
+const { setGlobalOptions } = require('firebase-functions/v2');
+const admin = require('firebase-admin');
+const logger = require('firebase-functions/logger');
 
 admin.initializeApp();
 setGlobalOptions({ region: 'asia-northeast3', maxInstances: 10 });
@@ -122,10 +122,10 @@ exports.whoami = onCall(async (request) => {
   if (!request.auth) return { loggedIn: false };
   return {
     loggedIn: true,
-    uid:     request.auth.uid,
-    email:   request.auth.token.email || null,
-    admin:   request.auth.token.admin === true,
-    tester:  request.auth.token.tester === true,
+    uid: request.auth.uid,
+    email: request.auth.token.email || null,
+    admin: request.auth.token.admin === true,
+    tester: request.auth.token.tester === true,
     issuedAt: request.auth.token.iat,
   };
 });
@@ -139,4 +139,86 @@ exports.adminExampleTemplate = onCall(async (request) => {
   requireAdmin(request);            // ← Layer ② 검증
   // ... 실제 admin 작업
   return { ok: true, note: '이 한 줄(requireAdmin)이 4중 레이어의 Layer ② 입니다.' };
+});
+/* ─────────────────────────────────────────────────────────────
+   incrementUsage — 분석 사용량 1회 증가 + 한도 체크 (P0-2 step2A-2)
+     - 클라이언트가 직접 analysisCount를 update하지 못하도록
+       firestore.rules에서 차단했으므로, 모든 사용량 증가는
+       반드시 이 함수를 통해서만 일어난다. (옵션 A의 핵심)
+     - 트랜잭션 사용 → 동시 요청 race condition 방지
+       (사용자가 빠르게 두 번 클릭해도 카운트가 정확히 +1)
+     - 서버 타임스탬프(Date.now)로 30일 경과 자동 리셋
+       (클라이언트 시계 조작 우회 무력화)
+   반환: { allowed: boolean, reason?, count?, limit?, plan? }
+   ────────────────────────────────────────────────────────────── */
+exports.incrementUsage = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', '로그인이 필요합니다.');
+  }
+
+  const uid = request.auth.uid;
+  const claims = request.auth.token;
+
+  // admin / tester 는 사용량 면제 (P0-1 기준과 동일)
+  if (claims.admin === true || claims.tester === true) {
+    return { allowed: true, reason: 'privileged' };
+  }
+
+  const FREE_LIMIT = 5;
+  const MS_30_DAYS = 30 * 24 * 60 * 60 * 1000;
+  const userRef = admin.firestore().collection('users').doc(uid);
+  const nowMs = Date.now();   // 서버 측정 → 클라 시계 위조 무용
+
+  // read → check → write 를 트랜잭션으로 원자화
+  const result = await admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(userRef);
+
+    // 최초 사용: users 문서 즉석 생성 (analysisCount=1로 시작)
+    if (!snap.exists) {
+      tx.set(userRef, {
+        plan: 'free',
+        analysisCount: 1,
+        analysisResetDate: nowMs,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return { allowed: true, count: 1, limit: FREE_LIMIT };
+    }
+
+    const data = snap.data();
+
+    // 유료 플랜은 무제한
+    if (data.plan !== 'free') {
+      return { allowed: true, plan: data.plan };
+    }
+
+    let count = data.analysisCount || 0;
+    let resetDate = data.analysisResetDate || nowMs;
+
+    // 30일 경과 → 자동 리셋
+    if (nowMs > resetDate + MS_30_DAYS) {
+      count = 0;
+      resetDate = nowMs;
+    }
+
+    // 한도 도달 → 차단
+    if (count >= FREE_LIMIT) {
+      return {
+        allowed: false,
+        reason: 'limit_reached',
+        count,
+        limit: FREE_LIMIT,
+      };
+    }
+
+    // 카운트 +1
+    const newCount = count + 1;
+    tx.update(userRef, {
+      analysisCount: newCount,
+      analysisResetDate: resetDate,
+    });
+
+    return { allowed: true, count: newCount, limit: FREE_LIMIT };
+  });
+
+  return result;
 });
