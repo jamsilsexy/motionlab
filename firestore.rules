@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service cloud.firestore {
+  // Firestore 문서 경로 규칙의 최상위 범위
+  match /databases/{database}/documents {
+    // 로그인 여부 확인 헬퍼
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // 관리자 권한 여부 확인 헬퍼
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // 테스터 권한 여부 확인 헬퍼
+    function isTester() {
+      return isSignedIn() && request.auth.token.tester == true;
+    }
+
+    // 요청 사용자가 특정 uid의 소유자인지 확인 헬퍼
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // 명시되지 않은 모든 경로에 대한 기본 차단 규칙
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
