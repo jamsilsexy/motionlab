@@ -80,8 +80,10 @@ exports.setAdminClaim = onCall(async (request) => {
 
   // 자기 자신의 admin 권한은 회수 불가 (lockout 방지)
   if (targetUid === request.auth.uid && isAdmin === false) {
-    throw new HttpsError('failed-precondition',
-      '자기 자신의 admin 권한은 회수할 수 없습니다. 다른 admin을 통해 처리하세요.');
+    throw new HttpsError(
+      'failed-precondition',
+      '자기 자신의 admin 권한은 회수할 수 없습니다. 다른 admin을 통해 처리하세요.'
+    );
   }
 
   // 기존 customClaims 보존 + admin 토글 (tester 등 다른 claim은 유지)
@@ -101,7 +103,8 @@ exports.setTesterClaim = onCall(async (request) => {
 
   const { uid, email, isTester } = request.data || {};
   if (!uid && !email) throw new HttpsError('invalid-argument', 'uid 또는 email 필수');
-  if (typeof isTester !== 'boolean') throw new HttpsError('invalid-argument', 'isTester boolean 필수');
+  if (typeof isTester !== 'boolean')
+    throw new HttpsError('invalid-argument', 'isTester boolean 필수');
 
   let targetUid = uid;
   if (!targetUid) targetUid = (await admin.auth().getUserByEmail(email)).uid;
@@ -136,7 +139,7 @@ exports.whoami = onCall(async (request) => {
      추가할 때 이 패턴(첫 줄: requireAdmin)을 그대로 따른다.
    ────────────────────────────────────────────────────────────── */
 exports.adminExampleTemplate = onCall(async (request) => {
-  requireAdmin(request);            // ← Layer ② 검증
+  requireAdmin(request); // ← Layer ② 검증
   // ... 실제 admin 작업
   return { ok: true, note: '이 한 줄(requireAdmin)이 4중 레이어의 Layer ② 입니다.' };
 });
@@ -167,7 +170,7 @@ exports.incrementUsage = onCall(async (request) => {
   const FREE_LIMIT = 5;
   const MS_30_DAYS = 30 * 24 * 60 * 60 * 1000;
   const userRef = admin.firestore().collection('users').doc(uid);
-  const nowMs = Date.now();   // 서버 측정 → 클라 시계 위조 무용
+  const nowMs = Date.now(); // 서버 측정 → 클라 시계 위조 무용
 
   // read → check → write 를 트랜잭션으로 원자화
   const result = await admin.firestore().runTransaction(async (tx) => {

@@ -17,11 +17,11 @@
 'use strict';
 
 const admin = require('firebase-admin');
-const fs    = require('fs');
-const path  = require('path');
+const fs = require('fs');
+const path = require('path');
 
-const KEY_PATH         = path.join(__dirname, 'service-account.json');
-const GYM_OWNER_EMAIL  = process.env.GYM_OWNER_EMAIL;
+const KEY_PATH = path.join(__dirname, 'service-account.json');
+const GYM_OWNER_EMAIL = process.env.GYM_OWNER_EMAIL;
 
 if (!GYM_OWNER_EMAIL) {
   console.error('[ERROR] GYM_OWNER_EMAIL 환경변수가 비어 있습니다.');
