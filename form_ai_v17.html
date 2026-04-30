@@ -4437,48 +4437,19 @@
           return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
         }
 
-        /* ── 사용량 체크 & 증가 ── */
+        /* ── 사용량 체크 & 증가 (P0-2 step2A-3, 옵션 A) ── */
         async function checkAndIncrementUsage() {
           if (!_currentUser) return { allowed: false, reason: 'not_logged_in' };
-
-          // ★ P0-1: 하드코딩 이메일 제거. Firebase Custom Claims(서버 발급 토큰)로 대체.
-          //   admin/tester claim 보유자만 사용량 제한 면제. 클라이언트 코드를
-          //   임의 수정해도 token이 위조 불가능하므로 안전. (claim 부여는 Cloud
-          //   Functions의 setAdminClaim/setTesterClaim 통해서만 가능 — P0-1 B파트에서 배포)
           try {
-            const tokenResult = await _currentUser.getIdTokenResult(false);
-            if (tokenResult.claims.admin === true || tokenResult.claims.tester === true) {
-              return { allowed: true, reason: 'privileged' };
-            }
+            const incrementUsageFn = firebase
+              .functions()
+              .httpsCallable('incrementUsage');
+            const result = await incrementUsageFn();
+            return result.data;
           } catch (e) {
-            console.warn('[AuthGuard] token claims 조회 실패:', e);
-            // 실패 시 일반 사용자 흐름으로 진행 (보안상 보수적)
+            console.error('[AuthGuard] incrementUsage 호출 실패:', e);
+            return { allowed: false, reason: 'server_error' };
           }
-
-          const doc = _userDoc || (await _loadUserDoc(_currentUser.uid));
-
-          // 유료 플랜 → 무제한
-          if (doc.plan !== 'free') return { allowed: true };
-
-          // 월 리셋 체크
-          const now = Date.now();
-          if (doc.analysisResetDate && now > doc.analysisResetDate + 30 * 24 * 3600 * 1000) {
-            await db.collection('users').doc(_currentUser.uid).update({
-              analysisCount: 0,
-              analysisResetDate: _monthStart(),
-            });
-            doc.analysisCount = 0;
-          }
-
-          if (doc.analysisCount >= FREE_LIMIT) {
-            return { allowed: false, reason: 'limit_reached', count: doc.analysisCount };
-          }
-
-          // 카운트 증가
-          const newCount = (doc.analysisCount || 0) + 1;
-          await db.collection('users').doc(_currentUser.uid).update({ analysisCount: newCount });
-          _userDoc.analysisCount = newCount;
-          return { allowed: true, count: newCount };
         }
 
         /* ── 유저 추가 정보 저장 ── */
