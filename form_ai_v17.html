@@ -11931,7 +11931,7 @@
           const rt = AppState.realtime,
             cfg = AppConfig.CAPTURE;
           const st = AppState.squatTracker;
-          if (AppState.result.captures.length >= cfg.MAX_COUNT) return;
+          const isCaptureFull = AppState.result.captures.length >= cfg.MAX_COUNT; // ★ B#2: 캡처 종료해도 av-chip은 계속
 
           // 현재 rep 정보
           const isOhs = AppState.session.selectedMvId?.startsWith('ohs');
@@ -11947,6 +11947,7 @@
             const risk = Utils.riskOf(ang, range);
             if (risk === 'normal' || risk === 'ignore') return;
             active.push({ key: j, risk });
+            if (isCaptureFull) return; // ★ B#2: 캡처 가득 찼으면 알림만, 이후 캡처 로직 스킵
 
             const dev = Utils.devOf(ang, range);
 
