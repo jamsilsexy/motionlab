@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    /* 헬퍼 함수 — 인증 + admin/tester 판별 */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    /* members/{ownerUid}/{memberId}/photos/{fileName}
+       트레이너의 회원 체형 사진 — 본인(트레이너)만 읽기/쓰기 가능
+       타 트레이너는 절대 접근 불가 (개인정보보호) */
+    match /members/{ownerUid}/{memberId}/photos/{fileName} {
+      allow read: if isOwner(ownerUid) || isAdmin();
+      allow write: if isOwner(ownerUid)
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    /* analyses/{ownerUid}/{analysisId}/{fileName}
+       분석 결과 첨부 (분석 시 캡처된 프레임 등) */
+    match /analyses/{ownerUid}/{analysisId}/{fileName} {
+      allow read: if isOwner(ownerUid) || isAdmin();
+      allow write: if isOwner(ownerUid)
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    /* 명시되지 않은 모든 경로 차단 */
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
