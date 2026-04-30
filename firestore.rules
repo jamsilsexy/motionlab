@@ -51,6 +51,19 @@ service cloud.firestore {
       allow delete: if isOwner(uid) || isAdmin();
     }
 
+    /* ─────────────────────────────────────────────────────────
+       members/{ownerUid}/list/{memberId} — 트레이너의 회원 명단
+       본인(트레이너 uid) 외 절대 접근 불가
+       ──────────────────────────────────────────────────────── */
+    match /members/{ownerUid}/list/{memberId} {
+      allow read, write: if isOwner(ownerUid) || isAdmin();
+    }
+
+    // members/{ownerUid} 자체 문서 (하위 컬렉션의 부모)
+    match /members/{ownerUid} {
+      allow read, write: if isOwner(ownerUid) || isAdmin();
+    }
+
     // 명시되지 않은 모든 경로에 대한 기본 차단 규칙
     match /{document=**} {
       allow read, write: if false;
