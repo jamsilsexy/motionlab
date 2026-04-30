@@ -64,6 +64,39 @@ service cloud.firestore {
       allow read, write: if isOwner(ownerUid) || isAdmin();
     }
 
+    /* analyses/{ownerUid}/list/{analysisId} — 트레이너의 분석 결과
+       본인(트레이너 uid)만 읽기/쓰기, 타인 절대 접근 불가 */
+    match /analyses/{ownerUid}/list/{analysisId} {
+      allow read, write: if isOwner(ownerUid) || isAdmin();
+    }
+    match /analyses/{ownerUid} {
+      allow read, write: if isOwner(ownerUid) || isAdmin();
+    }
+
+    /* consent_logs/{ownerUid}/list/{logId} — 회원 동의 이력
+       본인(트레이너 uid)만 쓰기, admin은 감사용 읽기 가능 */
+    match /consent_logs/{ownerUid}/list/{logId} {
+      allow read: if isOwner(ownerUid) || isAdmin();
+      allow create: if isOwner(ownerUid);
+      allow update, delete: if isAdmin();
+    }
+    match /consent_logs/{ownerUid} {
+      allow read, write: if isOwner(ownerUid) || isAdmin();
+    }
+
+    /* admin_audit_log/{logId} — admin claim 변경 감사 로그
+       클라이언트 접근 전면 차단. 쓰기는 Cloud Functions만 가능 */
+    match /admin_audit_log/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    /* subscriptions/{userId} — 결제 구독 정보
+       베타 기간 차단. 정식 출시 시 결제 모듈과 함께 규칙 변경 */
+    match /subscriptions/{userId} {
+      allow read, write: if false;
+    }
+
     // 명시되지 않은 모든 경로에 대한 기본 차단 규칙
     match /{document=**} {
       allow read, write: if false;
