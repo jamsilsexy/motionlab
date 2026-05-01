@@ -8,6 +8,7 @@ import {
   type Capture,
   type JointRange,
   type JointSummaryEntry,
+  type ResultState,
   SH,
   useAnalysisStore,
 } from '@/lib/analysis';
@@ -74,6 +75,14 @@ export default function AnalysisRunScreen() {
     SH.saveCurrentResult(mvId, finalResult);
     const next = SH.advanceQueue();
     if (!next) {
+      // 큐 끝 — 보완 테스트 추천 결정 (web v17 _goToSupplementOrResult)
+      const sess = useAnalysisStore.getState().session;
+      const suppId = decideSupplementTest(sess.allResults, sess.analysisQueue, sess.supplementSkipped);
+      if (suppId) {
+        SH.setSupplementId(suppId);
+        router.replace(`/analysis/supplement?memberId=${memberId ?? ''}`);
+        return;
+      }
       router.replace(`/analysis/report?memberId=${memberId ?? ''}`);
       return;
     }
@@ -113,6 +122,30 @@ export default function AnalysisRunScreen() {
       </View>
     </SafeAreaView>
   );
+}
+
+/* 보완 테스트 결정 — Phase B에서 AnalysisEngine.decideSupplementTest로 교체 */
+function decideSupplementTest(
+  allResults: Record<string, ResultState>,
+  alreadyInQueue: string[],
+  skipped: boolean,
+): string | null {
+  if (skipped) return null;
+  const triggerJoints = new Set<string>();
+  for (const r of Object.values(allResults)) {
+    for (const c of r.criticalIssues) {
+      if (c.severity === 'danger' || (c.repeatCount ?? 0) >= 3) {
+        triggerJoints.add(c.jointKey);
+      }
+    }
+  }
+  if (triggerJoints.size === 0) return null;
+  const matched = AppConfig.SUPPLEMENT_MAP.find((m) =>
+    m.triggerJoints.some((j) => triggerJoints.has(j)),
+  );
+  if (!matched) return null;
+  if (alreadyInQueue.includes(matched.supplementId)) return null;
+  return matched.supplementId;
 }
 
 /* mock 결과 주입 — Phase B 에서 실제 파이프라인 교체 시 제거 */
