@@ -6827,12 +6827,41 @@
             }
           }
 
-          const m = DM.Member({ ...d, id: AppState.session.memberId || undefined });
+          // ★ P0-4 step3: 신규 회원 또는 미동의 회원에게만 동의 모달 표시
+          const existingMember = AppState.session.memberId
+            ? AppState.members.find((mm) => mm.id === AppState.session.memberId)
+            : null;
+          let consentResult = null;
+          if (!existingMember || !existingMember.consentedAt) {
+            consentResult = await ConsentSystem.request(d.name);
+            if (!consentResult.ok) {
+              UIR.toast('회원 동의가 필요합니다');
+              return;
+            }
+          }
+          const consentedAt =
+            existingMember?.consentedAt ||
+            (consentResult ? new Date().toISOString() : null);
+
+          const m = DM.Member({
+            ...d,
+            id: AppState.session.memberId || undefined,
+            consentedAt,
+          });
           SH.setSessionMember(m);
           SH.upsertMember(m);
 
           // Firestore에 회원 저장 (비동기, 앱 흐름 막지 않음)
           FirebaseApp.saveMember(m).catch(() => {});
+
+          // ★ P0-4 step3: 새 동의 발생 시 consent_logs에도 별도 적재
+          if (consentResult) {
+            FirebaseApp.saveConsent(
+              m.id,
+              consentResult.signatureDataUrl,
+              consentResult.agreedTerms
+            ).catch((e) => console.warn('[saveConsent] failed:', e));
+          }
 
           AppState.session.analysisQueue = ['static_pose', 'ohs_front', 'ohs_side']; // ★ v17: 정적→동적 순서
           AppState.session.currentQueueIdx = 0;
