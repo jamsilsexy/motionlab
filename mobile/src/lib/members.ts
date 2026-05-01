@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -26,6 +27,13 @@ export async function listMembers(): Promise<Member[]> {
   const uid = uidOrThrow();
   const snap = await getDocs(query(memberCollection(uid), orderBy('createdAt', 'desc')));
   return snap.docs.map((d) => ({ ...(d.data() as Member), id: d.id }));
+}
+
+export async function getMember(id: string): Promise<Member | null> {
+  const uid = uidOrThrow();
+  const snap = await getDoc(doc(db, 'members', uid, 'list', id));
+  if (!snap.exists()) return null;
+  return { ...(snap.data() as Member), id: snap.id };
 }
 
 export async function upsertMember(m: Member): Promise<void> {
