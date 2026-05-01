@@ -4,8 +4,10 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConsentModal } from '@/components/consent-modal';
-import { type Member } from '@/lib/analysis';
+import { type Member, SH } from '@/lib/analysis';
 import { getMember, upsertMember } from '@/lib/members';
+
+const DEFAULT_QUEUE = ['static_pose', 'ohs_front', 'ohs_side'];
 
 export default function MemberDetailScreen() {
   const router = useRouter();
@@ -33,10 +35,18 @@ export default function MemberDetailScreen() {
     void fetch();
   }, [fetch]);
 
+  const startQueueAndRoute = () => {
+    if (!member) return;
+    SH.setSessionMember(member);
+    SH.startAnalysisQueue(DEFAULT_QUEUE);
+    // 큐 첫 단계는 static_pose — 별도 화면으로 진입
+    router.push(`/analysis/static-pose?memberId=${member.id}`);
+  };
+
   const onStartAnalysis = () => {
     if (!member) return;
     if (member.consentedAt) {
-      router.push(`/analysis/upload?memberId=${member.id}`);
+      startQueueAndRoute();
     } else {
       setShowConsent(true);
     }
@@ -49,7 +59,9 @@ export default function MemberDetailScreen() {
       const updated: Member = { ...member, consentedAt: new Date().toISOString() };
       await upsertMember(updated);
       setMember(updated);
-      router.push(`/analysis/upload?memberId=${member.id}`);
+      SH.setSessionMember(updated);
+      SH.startAnalysisQueue(DEFAULT_QUEUE);
+      router.push(`/analysis/static-pose?memberId=${member.id}`);
     } catch (err) {
       Alert.alert('동의 시각 저장 실패', (err as Error).message);
     }

@@ -2,7 +2,16 @@ import { create } from 'zustand';
 
 import { AppConfig } from './config';
 import { load, store } from './storage';
-import type { JointAngles, JointRange, Landmark } from './types';
+import type {
+  JointAngles,
+  JointRange,
+  Landmark,
+  MemberSummary,
+  NasmPattern,
+  PtPlan,
+  SalesScriptStage,
+  StaticPoseResult,
+} from './types';
 
 export type MemberGender = '' | 'male' | 'female';
 export type MemberExperience = '' | 'beginner' | 'intermediate' | 'advanced';
@@ -112,6 +121,10 @@ export interface ResultState {
   videoSignature: VideoSignature | null;
   previousSignature: VideoSignature | null;
   analyzedMovements?: string[];
+  memberSummary: MemberSummary | null;
+  salesScript: SalesScriptStage[] | null;
+  ptPlan: PtPlan | null;
+  nasmPatterns: NasmPattern[] | null;
 }
 
 export interface SessionState {
@@ -122,7 +135,7 @@ export interface SessionState {
   analysisQueue: string[];
   currentQueueIdx: number;
   allResults: Record<string, ResultState>;
-  staticPoseResult: unknown | null;
+  staticPoseResult: StaticPoseResult | null;
   supplementId: string | null;
   supplementSkipped: boolean;
 }
@@ -193,6 +206,15 @@ interface AnalysisStore {
   setRealtime: (patch: Partial<RealtimeState>) => void;
   setSquatTracker: (patch: Partial<SquatTrackerState>) => void;
   setResult: (patch: Partial<ResultState>) => void;
+
+  // 분석 큐 (v17 흐름: static_pose → ohs_front → ohs_side → 보완)
+  startAnalysisQueue: (queue: string[]) => void;
+  appendToQueue: (mvId: string) => void;
+  advanceQueue: () => string | null;
+  saveCurrentResult: (mvId: string, result: ResultState) => void;
+  setStaticPoseResult: (r: StaticPoseResult | null) => void;
+  setSupplementId: (id: string | null) => void;
+  markSupplementSkipped: () => void;
 }
 
 const emptySession = (): SessionState => ({
@@ -241,6 +263,10 @@ const emptyResult = (prevSig: VideoSignature | null = null): ResultState => ({
   recurrence: {},
   videoSignature: null,
   previousSignature: prevSig,
+  memberSummary: null,
+  salesScript: null,
+  ptPlan: null,
+  nasmPatterns: null,
 });
 
 export const useAnalysisStore = create<AnalysisStore>((set, get) => ({
@@ -323,6 +349,71 @@ export const useAnalysisStore = create<AnalysisStore>((set, get) => ({
 
   setResult: (patch) =>
     set((s) => ({ result: { ...s.result, ...patch } })),
+
+  startAnalysisQueue: (queue) =>
+    set((s) => ({
+      session: {
+        ...s.session,
+        analysisQueue: [...queue],
+        currentQueueIdx: 0,
+        allResults: {},
+        staticPoseResult: null,
+        supplementId: null,
+        supplementSkipped: false,
+        selectedMvId: queue[0] ?? '',
+      },
+      result: emptyResult(),
+    })),
+
+  appendToQueue: (mvId) =>
+    set((s) => {
+      if (s.session.analysisQueue.includes(mvId)) return s;
+      return {
+        session: {
+          ...s.session,
+          analysisQueue: [...s.session.analysisQueue, mvId],
+        },
+      };
+    }),
+
+  advanceQueue: () => {
+    const s = get().session;
+    const nextIdx = s.currentQueueIdx + 1;
+    if (nextIdx >= s.analysisQueue.length) {
+      set((curr) => ({
+        session: { ...curr.session, currentQueueIdx: nextIdx },
+      }));
+      return null;
+    }
+    const nextMv = s.analysisQueue[nextIdx];
+    set((curr) => ({
+      session: {
+        ...curr.session,
+        currentQueueIdx: nextIdx,
+        selectedMvId: nextMv,
+        videoUri: null,
+      },
+      result: emptyResult(curr.result.videoSignature),
+    }));
+    return nextMv;
+  },
+
+  saveCurrentResult: (mvId, result) =>
+    set((s) => ({
+      session: {
+        ...s.session,
+        allResults: { ...s.session.allResults, [mvId]: result },
+      },
+    })),
+
+  setStaticPoseResult: (r) =>
+    set((s) => ({ session: { ...s.session, staticPoseResult: r } })),
+
+  setSupplementId: (id) =>
+    set((s) => ({ session: { ...s.session, supplementId: id } })),
+
+  markSupplementSkipped: () =>
+    set((s) => ({ session: { ...s.session, supplementSkipped: true } })),
 }));
 
 /**
@@ -373,4 +464,15 @@ export const SH = {
   setSquatTracker: (patch: Partial<SquatTrackerState>) =>
     useAnalysisStore.getState().setSquatTracker(patch),
   setResult: (patch: Partial<ResultState>) => useAnalysisStore.getState().setResult(patch),
+
+  startAnalysisQueue: (queue: string[]) =>
+    useAnalysisStore.getState().startAnalysisQueue(queue),
+  appendToQueue: (mvId: string) => useAnalysisStore.getState().appendToQueue(mvId),
+  advanceQueue: () => useAnalysisStore.getState().advanceQueue(),
+  saveCurrentResult: (mvId: string, result: ResultState) =>
+    useAnalysisStore.getState().saveCurrentResult(mvId, result),
+  setStaticPoseResult: (r: StaticPoseResult | null) =>
+    useAnalysisStore.getState().setStaticPoseResult(r),
+  setSupplementId: (id: string | null) => useAnalysisStore.getState().setSupplementId(id),
+  markSupplementSkipped: () => useAnalysisStore.getState().markSupplementSkipped(),
 };

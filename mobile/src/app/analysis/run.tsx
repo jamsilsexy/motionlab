@@ -13,8 +13,10 @@ import {
 } from '@/lib/analysis';
 
 /**
- * M3-5 Lean 베타: mock 진행 시뮬레이션 + mock 결과 주입.
- * 실기기 빌드 (M4) 후 실제 MediaPipe Pose 파이프라인으로 교체.
+ * M5-A3 — 큐 단계별 mock 분석 진행.
+ * 끝나면 saveCurrentResult → advanceQueue → 다음 화면 자동 라우팅.
+ *
+ * Phase B 에서 mock 진행 → 실제 MediaPipe Pose 파이프라인으로 교체.
  */
 export default function AnalysisRunScreen() {
   const router = useRouter();
@@ -24,8 +26,13 @@ export default function AnalysisRunScreen() {
   const [phase, setPhase] = useState('영상 로딩 중');
   const navigatedRef = useRef(false);
 
+  const mvId = session.selectedMvId;
+  const movement = AppConfig.MOVEMENTS.find((m) => m.id === mvId);
+  const queueLen = session.analysisQueue.length;
+  const stepNum = session.currentQueueIdx + 1;
+
   useEffect(() => {
-    if (!session.videoUri) {
+    if (!session.videoUri || !mvId) {
       router.back();
       return;
     }
@@ -43,26 +50,49 @@ export default function AnalysisRunScreen() {
     const id = setInterval(() => {
       if (i >= phases.length) {
         clearInterval(id);
-        if (!navigatedRef.current) {
-          navigatedRef.current = true;
-          injectMockResult();
-          router.replace(`/analysis/report?memberId=${memberId ?? ''}`);
-        }
+        if (navigatedRef.current) return;
+        navigatedRef.current = true;
+        finishStep();
         return;
       }
       setProgress(phases[i].p);
       setPhase(phases[i].label);
       i += 1;
-    }, 700);
+    }, 600);
 
     return () => clearInterval(id);
-  }, [session.videoUri, memberId, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const finishStep = () => {
+    if (!mvId) {
+      router.replace('/');
+      return;
+    }
+    injectMockResult(mvId);
+    const finalResult = useAnalysisStore.getState().result;
+    SH.saveCurrentResult(mvId, finalResult);
+    const next = SH.advanceQueue();
+    if (!next) {
+      router.replace(`/analysis/report?memberId=${memberId ?? ''}`);
+      return;
+    }
+    const nextMv = AppConfig.MOVEMENTS.find((m) => m.id === next);
+    if (nextMv?.isStatic) {
+      router.replace(`/analysis/static-pose?memberId=${memberId ?? ''}`);
+    } else {
+      router.replace(`/analysis/upload?memberId=${memberId ?? ''}`);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
       <View className="flex-1 items-center justify-center px-6">
-        <Text className="text-4xl">🏋️</Text>
-        <Text className="mt-4 text-base font-semibold text-gray-900">{phase}</Text>
+        <Text className="text-4xl">{movement?.icon ?? '🏋️'}</Text>
+        <Text className="mt-2 text-xs text-gray-500">
+          {stepNum}/{queueLen} {movement?.label ?? ''}
+        </Text>
+        <Text className="mt-3 text-base font-semibold text-gray-900">{phase}</Text>
 
         <View className="mt-6 w-full max-w-xs">
           <View className="h-2 overflow-hidden rounded-full bg-gray-200">
@@ -75,10 +105,9 @@ export default function AnalysisRunScreen() {
         </View>
 
         <View className="mt-12 max-w-xs rounded-lg bg-yellow-50 p-4">
-          <Text className="text-xs font-semibold text-yellow-800">⚠️ 베타 안내</Text>
+          <Text className="text-xs font-semibold text-yellow-800">⚠️ Phase A 베타 안내</Text>
           <Text className="mt-1 text-xs leading-5 text-yellow-900">
-            현재는 mock 데이터로 화면 흐름 검증. 실기기 빌드(M4) 후 실제 MediaPipe Pose 분석으로
-            교체.
+            mock 데이터로 흐름 검증 중. Phase B 통합 후 실제 MediaPipe Pose 분석으로 교체됩니다.
           </Text>
         </View>
       </View>
@@ -86,17 +115,20 @@ export default function AnalysisRunScreen() {
   );
 }
 
-/* mock 결과 주입 — 실제 파이프라인 교체 시 이 함수 제거 */
-function injectMockResult() {
-  const mvId = useAnalysisStore.getState().session.selectedMvId || 'ohs_front';
+/* mock 결과 주입 — Phase B 에서 실제 파이프라인 교체 시 제거 */
+function injectMockResult(mvId: string) {
   const movement = AppConfig.MOVEMENTS.find((m) => m.id === mvId);
   if (!movement) return;
 
   const ranges = movement.ranges as unknown as Record<string, JointRange>;
 
+  // mvId별로 mock issue를 다르게 — 큐 단계마다 결과가 달라 보이도록
+  const seed = simpleHash(mvId);
+  const issueKeys = pickIssueKeys(Object.keys(ranges), seed);
+
   const jointSummary: Record<string, JointSummaryEntry> = {};
   Object.entries(ranges).forEach(([key, range]) => {
-    const isMockIssue = ['leftKnee', 'spine', 'leftHip'].includes(key);
+    const isMockIssue = issueKeys.includes(key);
     const worst = isMockIssue ? range.min - 12 : range.min + 5;
     jointSummary[key] = {
       avg: Math.round((range.min + range.max) / 2 - (isMockIssue ? 8 : 0)),
@@ -111,50 +143,44 @@ function injectMockResult() {
     };
   });
 
-  const criticalIssues: Capture[] = [
-    {
-      id: 'mock-1',
-      jointKey: 'leftKnee',
-      jointName: '왼쪽 무릎',
-      angle: (ranges.leftKnee?.min ?? 55) - 12,
-      normalRange: ranges.leftKnee ?? { min: 55, max: 130, name: '왼쪽 무릎' },
-      severity: 'danger',
+  const criticalIssues: Capture[] = issueKeys.map((k, i) => {
+    const range = ranges[k] ?? { min: 50, max: 130, name: k };
+    return {
+      id: `mock-${mvId}-${i}`,
+      jointKey: k,
+      jointName: range.name,
+      angle: range.min - (10 + i * 2),
+      normalRange: range,
+      severity: i === 0 ? 'danger' : 'warning',
       expertClass: 'CRITICAL',
-      timeMs: 2500,
-      repeatCount: 3,
-      repeatRate: 0.6,
+      timeMs: 2000 + i * 1500,
+      repeatCount: 3 - Math.min(i, 2),
+      repeatRate: 0.6 - i * 0.1,
       isRepresentative: true,
-    },
-    {
-      id: 'mock-2',
-      jointKey: 'spine',
-      jointName: '척추 정렬',
-      angle: 138,
-      normalRange: ranges.spine ?? { min: 148, max: 180, name: '척추 정렬' },
-      severity: 'warning',
-      expertClass: 'CRITICAL',
-      timeMs: 4200,
-      repeatCount: 4,
-      repeatRate: 0.8,
-      isRepresentative: true,
-    },
-    {
-      id: 'mock-3',
-      jointKey: 'leftHip',
-      jointName: '왼쪽 고관절',
-      angle: 38,
-      normalRange: ranges.leftHip ?? { min: 50, max: 120, name: '왼쪽 고관절' },
-      severity: 'warning',
-      expertClass: 'CRITICAL',
-      timeMs: 5800,
-      repeatCount: 2,
-      repeatRate: 0.4,
-      isRepresentative: true,
-    },
-  ];
+    };
+  });
 
   SH.setJointSummary(jointSummary);
   SH.setCritical(criticalIssues);
-  SH.setScore(67);
+  SH.setScore(60 + (seed % 25));
   SH.setResult({ isComplete: true });
+}
+
+function pickIssueKeys(keys: string[], seed: number): string[] {
+  // 2~3개를 결정적으로 선택 (mvId 기반)
+  const n = 2 + (seed % 2);
+  const sorted = [...keys].sort();
+  const out: string[] = [];
+  for (let i = 0; i < n && i < sorted.length; i += 1) {
+    out.push(sorted[(seed + i * 7) % sorted.length]);
+  }
+  return Array.from(new Set(out));
+}
+
+function simpleHash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i += 1) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
 }
