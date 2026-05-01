@@ -193,7 +193,7 @@ function extractVideoSignature(
   });
 
   // 2. 좌우 차이 최대값
-  const mirrorPairs: Array<[string, string]> = [
+  const mirrorPairs: [string, string][] = [
     ['leftKnee', 'rightKnee'],
     ['leftHip', 'rightHip'],
     ['leftAnkle', 'rightAnkle'],

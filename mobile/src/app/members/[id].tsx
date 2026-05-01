@@ -15,7 +15,10 @@ export default function MemberDetailScreen() {
   const [showConsent, setShowConsent] = useState(false);
 
   const fetch = useCallback(async () => {
-    if (!id) return;
+    if (!id) {
+      setLoading(false);
+      return;
+    }
     try {
       const m = await getMember(id);
       setMember(m);

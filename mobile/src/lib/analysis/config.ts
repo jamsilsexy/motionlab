@@ -83,7 +83,7 @@ export const AppConfig = {
     [11, 23], [12, 24], [23, 24],
     [23, 25], [25, 27], [27, 29], [27, 31],
     [24, 26], [26, 28], [28, 30], [28, 32],
-  ] as ReadonlyArray<readonly [number, number]>,
+  ] as readonly (readonly [number, number])[],
 
   SKEL: {
     DOT_OK: '#22c55e',
