@@ -20,11 +20,11 @@ form_ai_v17.html (~14,400줄, 16개 모듈) → Expo SDK 55 RN 앱.
 - [x] config.ts (AppConfig 풀버전 — 6 movements + SUPPLEMENT_MAP + SALES_SCRIPTS)
 - [x] utils.ts (calcAngle / lmAngle / riskOf / devOf / scoreColor / uid / wait 등)
 - [x] storage.ts (AsyncStorage wrapper — load / store / remove)
-- [ ] state.ts (분석 흐름용 mutable singleton — AppState 일부)
-- [ ] engine.ts (calcFrontAngles / calcSideAngles / buildSummary / extractVideoSignature / calcScore)
-- [ ] tracker.ts (SquatTracker — rep 감지)
-- [ ] filter.ts (ExpertFilter — critical 분류)
-- [ ] index.ts (배럴 export)
+- [x] state.ts (Zustand store + types + AnalysisState proxy + SH actions)
+- [x] engine.ts (calcFrontAngles / calcSideAngles / buildSummary / extractVideoSignature / calcScore + finalizeResult Lean)
+- [x] tracker.ts (SquatTracker — rep 감지 + recurrence 집계)
+- [x] filter.ts (ExpertFilter — 7가지 조건 C1~C7 + signature 기반 정렬)
+- [x] index.ts (배럴 export)
 
 ## 화면 (`src/app/`)
 
