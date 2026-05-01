@@ -4651,6 +4651,28 @@
           await ref.set(memberData);
         }
 
+        /* ── ★ P0-4: 회원 동의서 Firestore 저장 ── */
+        async function saveConsent(memberId, signatureDataUrl, agreedTerms) {
+          if (!_currentUser) throw new Error('로그인 필요');
+          if (!memberId) throw new Error('회원 ID 누락');
+          if (!signatureDataUrl) throw new Error('서명 누락');
+          const uid = _currentUser.uid;
+          const logId = `${memberId}_${Date.now()}`;
+          const ref = db
+            .collection('consent_logs')
+            .doc(uid)
+            .collection('list')
+            .doc(logId);
+          await ref.set({
+            memberId,
+            signatureDataUrl,
+            agreedTerms: agreedTerms || {},
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            trainerUid: uid,
+          });
+          return logId;
+        }
+
         /* ── 회원 목록 불러오기 ── */
         async function loadMembers() {
           if (!_currentUser) return [];
@@ -4776,6 +4798,7 @@
           onAuthReady,
           saveUserProfile,
           saveMember,
+          saveConsent,
           loadMembers,
           checkAndIncrementUsage,
           getCurrentUser,
@@ -6276,6 +6299,16 @@
         reevalCard: () => document.getElementById('reevalCard'),
         planNotes: () => document.getElementById('planNotes'),
         newAnalysisBtn: () => document.getElementById('newAnalysisBtn'),
+        // ★ P0-4: 회원 동의 모달 DOM
+        consentModalBg: () => document.getElementById('consentModalBg'),
+        consentMemberName: () => document.getElementById('consentMemberName'),
+        consentChk1: () => document.getElementById('consentChk1'),
+        consentChk2: () => document.getElementById('consentChk2'),
+        consentChk3: () => document.getElementById('consentChk3'),
+        consentSigCanvas: () => document.getElementById('consentSigCanvas'),
+        consentSigClear: () => document.getElementById('consentSigClear'),
+        consentCancelBtn: () => document.getElementById('consentCancelBtn'),
+        consentOkBtn: () => document.getElementById('consentOkBtn'),
       };
 
       /* ═══════════════════════════════════════════════════════════════
@@ -6377,6 +6410,7 @@
             notes: inp.notes || '',
             createdAt: inp.createdAt || new Date().toISOString(),
             lastAnalysis: inp.lastAnalysis || null,
+            consentedAt: inp.consentedAt || null, // ★ P0-4: 동의 완료 시각 (ISO string)
           };
         },
         Capture(p = {}) {
@@ -6427,6 +6461,153 @@
           };
         },
       };
+
+      /* ──────────────────────────────────────────────────────────────
+       * ConsentSystem (P0-4 step2 신규)
+       *   회원 동의 모달 제어 — 서명 캔버스 + 3개 필수 체크박스 검증.
+       *   사용 흐름:
+       *     const result = await ConsentSystem.request(memberName);
+       *     if (result.ok) { ... result.signatureDataUrl, result.agreedTerms ... }
+       *     else { // 사용자가 취소
+       *
+       *   Firestore 저장은 호출자가 FirebaseApp.saveConsent로 직접 수행.
+       *   (이 모듈은 모달 UX만 담당 — 단일 책임)
+       * ────────────────────────────────────────────────────────────── */
+      const ConsentSystem = (() => {
+        let _resolve = null;
+        let _drawing = false;
+        let _hasInk = false;
+        let _ctx = null;
+        let _wired = false;
+
+        function _setupCanvas() {
+          const cv = DC.consentSigCanvas();
+          if (!cv) return;
+          _ctx = cv.getContext('2d');
+          _ctx.lineWidth = 2;
+          _ctx.lineCap = 'round';
+          _ctx.strokeStyle = '#fff';
+          _clearCanvas();
+        }
+
+        function _clearCanvas() {
+          if (!_ctx) return;
+          const cv = DC.consentSigCanvas();
+          _ctx.clearRect(0, 0, cv.width, cv.height);
+          _hasInk = false;
+          _validate();
+        }
+
+        function _pos(e, cv) {
+          const r = cv.getBoundingClientRect();
+          const t = e.touches && e.touches[0];
+          const x = (t ? t.clientX : e.clientX) - r.left;
+          const y = (t ? t.clientY : e.clientY) - r.top;
+          return {
+            x: x * (cv.width / r.width),
+            y: y * (cv.height / r.height),
+          };
+        }
+
+        function _down(e) {
+          e.preventDefault();
+          _drawing = true;
+          const cv = DC.consentSigCanvas();
+          const p = _pos(e, cv);
+          _ctx.beginPath();
+          _ctx.moveTo(p.x, p.y);
+        }
+
+        function _move(e) {
+          if (!_drawing) return;
+          e.preventDefault();
+          const cv = DC.consentSigCanvas();
+          const p = _pos(e, cv);
+          _ctx.lineTo(p.x, p.y);
+          _ctx.stroke();
+          _hasInk = true;
+          _validate();
+        }
+
+        function _up(e) {
+          if (!_drawing) return;
+          e && e.preventDefault();
+          _drawing = false;
+        }
+
+        function _validate() {
+          const c1 = DC.consentChk1()?.checked;
+          const c2 = DC.consentChk2()?.checked;
+          const c3 = DC.consentChk3()?.checked;
+          const ok = !!(c1 && c2 && c3 && _hasInk);
+          const btn = DC.consentOkBtn();
+          if (btn) btn.disabled = !ok;
+          return ok;
+        }
+
+        function _close() {
+          DC.consentModalBg()?.classList.remove('show');
+        }
+
+        function _wire() {
+          if (_wired) return;
+          _wired = true;
+          const cv = DC.consentSigCanvas();
+          if (cv) {
+            cv.addEventListener('mousedown', _down);
+            cv.addEventListener('mousemove', _move);
+            cv.addEventListener('mouseup', _up);
+            cv.addEventListener('mouseleave', _up);
+            cv.addEventListener('touchstart', _down, { passive: false });
+            cv.addEventListener('touchmove', _move, { passive: false });
+            cv.addEventListener('touchend', _up, { passive: false });
+          }
+          DC.consentChk1()?.addEventListener('change', _validate);
+          DC.consentChk2()?.addEventListener('change', _validate);
+          DC.consentChk3()?.addEventListener('change', _validate);
+          DC.consentSigClear()?.addEventListener('click', _clearCanvas);
+          DC.consentCancelBtn()?.addEventListener('click', () => {
+            _close();
+            const r = _resolve;
+            _resolve = null;
+            r && r({ ok: false, reason: 'cancel' });
+          });
+          DC.consentOkBtn()?.addEventListener('click', () => {
+            if (!_validate()) return;
+            const cv = DC.consentSigCanvas();
+            const dataUrl = cv.toDataURL('image/png');
+            const agreedTerms = {
+              dataCollection: !!DC.consentChk1()?.checked,
+              aiAnalysis: !!DC.consentChk2()?.checked,
+              retentionUntilEnd: !!DC.consentChk3()?.checked,
+            };
+            _close();
+            const r = _resolve;
+            _resolve = null;
+            r && r({ ok: true, signatureDataUrl: dataUrl, agreedTerms });
+          });
+        }
+
+        // 동의 모달을 띄우고 사용자 결과를 await.
+        // memberName 헤더에 표시할 회원 이름.
+        // returns Promise<{ok: boolean, signatureDataUrl?: string, agreedTerms?: object, reason?: string}>
+        function request(memberName) {
+          _wire();
+          _setupCanvas();
+          if (DC.consentChk1()) DC.consentChk1().checked = false;
+          if (DC.consentChk2()) DC.consentChk2().checked = false;
+          if (DC.consentChk3()) DC.consentChk3().checked = false;
+          const sub = DC.consentMemberName();
+          if (sub) sub.textContent = (memberName || '회원') + '님께 직접 받아주세요';
+          _validate();
+          DC.consentModalBg()?.classList.add('show');
+          return new Promise((res) => {
+            _resolve = res;
+          });
+        }
+
+        return { request };
+      })();
 
       /* ═══════════════════════════════════════════════════════════════
    06. STATE HELPERS
