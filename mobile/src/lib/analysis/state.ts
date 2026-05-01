@@ -4,16 +4,29 @@ import { AppConfig } from './config';
 import { load, store } from './storage';
 import type { JointAngles, JointRange, Landmark } from './types';
 
+export type MemberGender = '' | 'male' | 'female';
+export type MemberExperience = '' | 'beginner' | 'intermediate' | 'advanced';
+export type MemberGoal = 'weight' | 'performance' | 'rehab' | 'general';
+export type MemberAsymmetry = 'none' | 'minor' | 'significant';
+
 export interface Member {
   id: string;
   name?: string;
-  goal?: 'weight' | 'performance' | 'rehab' | 'general';
-  experience?: 'beginner' | 'intermediate' | 'advanced';
-  asymmetry?: 'none' | 'minor' | 'significant';
-  injuryHistory?: boolean;
+  gender?: MemberGender;
+  age?: number;
+  experience?: MemberExperience;
+  height?: number;
+  weight?: number;
+  bodyFat?: number;
+  muscleMass?: number;
+  asymmetry?: MemberAsymmetry;
+  goal?: MemberGoal;
   painAreas?: string;
+  injuryHistory?: string;
+  notes?: string;
+  createdAt?: string;
+  lastAnalysis?: string | null;
   consentedAt?: string | null;
-  lastAnalysis?: string;
 }
 
 export interface Capture {
