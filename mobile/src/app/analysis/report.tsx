@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -21,10 +21,13 @@ import {
  * Phase A: sales script / member summary / PT plan / NASM 패턴은 mock 으로 채움.
  * Phase B: V2 lib 함수들이 이 자리에 실제 데이터를 넣음.
  */
+type ViewMode = 'member' | 'trainer';
+
 export default function ReportScreen() {
   const router = useRouter();
   const session = useAnalysisStore((s) => s.session);
   const member = session.memberData;
+  const [mode, setMode] = useState<ViewMode>('member');
 
   // 모든 큐 결과 종합
   const overall = useMemo(() => buildOverall(session.allResults), [session.allResults]);
@@ -57,18 +60,26 @@ export default function ReportScreen() {
           {new Date().toLocaleDateString('ko-KR')} · {session.analysisQueue.length}개 단계 분석
         </Text>
 
+        {/* 공통: 종합 점수 + 정적 자세 (모드 무관, 양쪽 다 표시) */}
         <ScoreCard score={overall.score} />
-
         {session.staticPoseResult && (
           <StaticPoseSection result={session.staticPoseResult} />
         )}
 
-        <Tab1MemberSummary summary={memberSummary} />
-        <Tab2NasmPatterns patterns={nasmPatterns} />
-        <Tab3SalesScript stages={salesScript} />
-        <PtPlanCard plan={ptPlan} />
+        {/* 모드 토글 */}
+        <ModeToggle mode={mode} onChange={setMode} />
 
-        <PerStageResults allResults={session.allResults} />
+        {/* 모드별 콘텐츠 */}
+        {mode === 'member' ? (
+          <MemberView summary={memberSummary} />
+        ) : (
+          <TrainerView
+            patterns={nasmPatterns}
+            stages={salesScript}
+            plan={ptPlan}
+            allResults={session.allResults}
+          />
+        )}
 
         <View className="mt-8 rounded-lg bg-yellow-50 p-4">
           <Text className="text-xs font-semibold text-yellow-800">⚠️ Phase A 베타 안내</Text>
@@ -94,6 +105,76 @@ export default function ReportScreen() {
         </Pressable>
       </View>
     </SafeAreaView>
+  );
+}
+
+function ModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
+  return (
+    <View className="mt-6 flex-row overflow-hidden rounded-lg border border-gray-300">
+      <Pressable
+        onPress={() => onChange('member')}
+        className={`flex-1 items-center py-2.5 ${
+          mode === 'member' ? 'bg-indigo-600' : 'bg-white active:bg-gray-100'
+        }`}
+      >
+        <Text
+          className={`text-sm ${mode === 'member' ? 'font-semibold text-white' : 'text-gray-700'}`}
+        >
+          👤 회원 요약
+        </Text>
+      </Pressable>
+      <Pressable
+        onPress={() => onChange('trainer')}
+        className={`flex-1 items-center border-l border-gray-300 py-2.5 ${
+          mode === 'trainer' ? 'bg-indigo-600' : 'bg-white active:bg-gray-100'
+        }`}
+      >
+        <Text
+          className={`text-sm ${mode === 'trainer' ? 'font-semibold text-white' : 'text-gray-700'}`}
+        >
+          🔬 트레이너 분석
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function MemberView({ summary }: { summary: MemberSummary }) {
+  return (
+    <View>
+      <View className="mt-4 rounded-lg bg-indigo-50 p-3">
+        <Text className="text-[11px] font-semibold text-indigo-700">
+          📱 이 화면은 회원에게 직접 보여주기 위한 요약입니다 (생활 언어).
+        </Text>
+      </View>
+      <Tab1MemberSummary summary={summary} />
+    </View>
+  );
+}
+
+function TrainerView({
+  patterns,
+  stages,
+  plan,
+  allResults,
+}: {
+  patterns: NasmPattern[];
+  stages: SalesScriptStage[];
+  plan: PtPlan;
+  allResults: Record<string, ResultState>;
+}) {
+  return (
+    <View>
+      <View className="mt-4 rounded-lg bg-amber-50 p-3">
+        <Text className="text-[11px] font-semibold text-amber-800">
+          🔬 트레이너 전용 — 회원에게 직접 보여주기보다는 상담/처방 도구로 활용.
+        </Text>
+      </View>
+      <Tab2NasmPatterns patterns={patterns} />
+      <Tab3SalesScript stages={stages} />
+      <PtPlanCard plan={plan} />
+      <PerStageResults allResults={allResults} />
+    </View>
   );
 }
 
