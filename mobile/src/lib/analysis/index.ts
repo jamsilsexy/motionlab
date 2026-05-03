@@ -9,3 +9,4 @@ export * from './engine';
 export * from './tracker';
 export * from './filter';
 export * from './nasm-engine';
+export * from './pose-live';

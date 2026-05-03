@@ -31,7 +31,7 @@ export default function SupplementScreen() {
     SH.appendToQueue(suppId);
     SH.advanceQueue(); // 새로 추가된 단계로 이동
     SH.setSupplementId(null);
-    router.replace(`/analysis/upload?memberId=${memberId ?? ''}`);
+    router.replace(`/analysis/camera?memberId=${memberId ?? ''}`);
   };
 
   const onSkip = () => {

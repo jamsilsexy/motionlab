@@ -5,7 +5,13 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppConfig, SH, type StaticPoseResult, useAnalysisStore } from '@/lib/analysis';
+import {
+  analyzeStaticPose,
+  AppConfig,
+  SH,
+  type StaticPoseResult,
+  useAnalysisStore,
+} from '@/lib/analysis';
 
 /**
  * M5-A2 — static_pose 화면 (큐의 첫 단계).
@@ -54,23 +60,29 @@ export default function StaticPoseScreen() {
     }
   };
 
-  const runMockAnalysis = () => {
+  const runAnalysis = async () => {
     if (!photoUri) return;
     setAnalyzing(true);
-    // ★ Phase B: StaticPoseAnalyzer.analyze(landmarks) 실호출로 교체
-    setTimeout(() => {
-      const mock = mockAnalyze(photoUri);
-      SH.setStaticPoseResult(mock);
+    try {
+      const r = await analyzeStaticPose(photoUri);
+      const result = buildStaticPoseResult(photoUri, r);
+      SH.setStaticPoseResult(result);
       // OHS 측면 방향이 결정됐으면 가이드에 반영 (web v17 로직)
-      if (mock.recommendedSideDirection) {
+      if (result.recommendedSideDirection) {
         const ohsSide = AppConfig.MOVEMENTS.find((m) => m.id === 'ohs_side');
-        if (ohsSide && mock.recommendedSideMessage) {
-          ohsSide.guide.angle = mock.recommendedSideMessage;
+        if (ohsSide && result.recommendedSideMessage) {
+          ohsSide.guide.angle = result.recommendedSideMessage;
         }
       }
-      setResult(mock);
+      setResult(result);
+    } catch (err) {
+      Alert.alert(
+        '분석 실패',
+        `정적 자세 분석에 실패했습니다.\n${(err as Error).message}\n다른 사진으로 다시 시도해주세요.`,
+      );
+    } finally {
       setAnalyzing(false);
-    }, 900);
+    }
   };
 
   const goNext = () => {
@@ -79,8 +91,8 @@ export default function StaticPoseScreen() {
       router.replace(`/analysis/report?memberId=${memberId ?? ''}`);
       return;
     }
-    // 다음은 OHS 정면(영상). upload 화면으로.
-    router.replace(`/analysis/upload?memberId=${memberId ?? ''}`);
+    // 다음은 OHS 정면(영상). camera 화면으로.
+    router.replace(`/analysis/camera?memberId=${memberId ?? ''}`);
   };
 
   const skipStep = () => {
@@ -187,7 +199,7 @@ export default function StaticPoseScreen() {
           </Pressable>
         ) : (
           <Pressable
-            onPress={runMockAnalysis}
+            onPress={runAnalysis}
             disabled={!photoUri || analyzing}
             className={`items-center rounded-lg py-3.5 ${
               photoUri && !analyzing ? 'bg-indigo-600 active:bg-indigo-700' : 'bg-gray-300'
@@ -263,9 +275,6 @@ function StaticResultCard({ result }: { result: StaticPoseResult }) {
         </View>
       )}
 
-      <Text className="mt-3 text-[10px] text-gray-400">
-        ⚠️ Phase A 베타: mock 데이터입니다. 실제 분석은 Phase B 통합 후.
-      </Text>
     </View>
   );
 }
@@ -279,41 +288,71 @@ function RowKV({ k, v }: { k: string; v: string }) {
   );
 }
 
-/* mock — 사진 URI 해시 기반으로 약간 다른 결과를 만들어서 화면 검증 시
-   "매번 같은 결과만 나오는" 인상을 피함. Phase B에서 제거. */
-function mockAnalyze(photoUri: string): StaticPoseResult {
-  const seed = simpleHash(photoUri);
-  const shoulderTilt = ((seed % 40) - 20) / 4; // -5 ~ +5
-  const pelvisTilt = (((seed >> 4) % 30) - 15) / 4; // -3.75 ~ +3.75
-  const alignmentScore = 65 + (seed % 25); // 65 ~ 89
-
+/* ─────────────────────────────────────────────────────────────
+   analyzeStaticPose 결과 → StaticPoseResult 변환 + 이슈 분류
+   - shoulderTilt/pelvisTilt: ±3°=warning, ±5°=danger (config.ts [R7])
+   - fhpDeviation: > 15°=warning, > 40°=danger (config.ts [R5] CVA cut-off)
+   - roundShoulderAngle: < 160°=warning (config.ts roundShoulder range)
+   ───────────────────────────────────────────────────────────── */
+function buildStaticPoseResult(
+  photoUri: string,
+  r: Awaited<ReturnType<typeof analyzeStaticPose>>,
+): StaticPoseResult {
   const issues: StaticPoseResult['issues'] = [];
-  if (Math.abs(shoulderTilt) >= 3) {
+  const shoulderAbs = Math.abs(r.shoulderTilt);
+  const pelvisAbs = Math.abs(r.pelvisTilt);
+
+  if (shoulderAbs >= 3) {
     issues.push({
       name: '어깨 좌우 비대칭',
-      severity: Math.abs(shoulderTilt) >= 4.5 ? 'danger' : 'warning',
-      description: `${shoulderTilt > 0 ? '우측' : '좌측'} 어깨가 ${Math.abs(shoulderTilt).toFixed(1)}° 높음`,
+      severity: shoulderAbs >= 5 ? 'danger' : 'warning',
+      description: `${r.shoulderTilt > 0 ? '우측' : '좌측'} 어깨가 ${shoulderAbs.toFixed(1)}° 높음`,
     });
   }
-  if (Math.abs(pelvisTilt) >= 2) {
+  if (pelvisAbs >= 3) {
     issues.push({
       name: '골반 좌우 기울기',
-      severity: Math.abs(pelvisTilt) >= 3 ? 'danger' : 'warning',
-      description: `${pelvisTilt > 0 ? '우측' : '좌측'} 골반이 ${Math.abs(pelvisTilt).toFixed(1)}° 높음`,
+      severity: pelvisAbs >= 5 ? 'danger' : 'warning',
+      description: `${r.pelvisTilt > 0 ? '우측' : '좌측'} 골반이 ${pelvisAbs.toFixed(1)}° 높음`,
     });
   }
+  if (r.fhpDeviation != null && r.fhpDeviation > 15) {
+    issues.push({
+      name: '거북목 (FHP)',
+      severity: r.fhpDeviation > 40 ? 'danger' : 'warning',
+      description: `CVA 추정 ${r.cva ?? '-'}° (정상 ≥ 50°), 전방 이탈 ${r.fhpDeviation}°`,
+    });
+  }
+  if (r.roundShoulderAngle != null && r.roundShoulderAngle < 160) {
+    issues.push({
+      name: '라운드숄더',
+      severity: r.roundShoulderAngle < 145 ? 'danger' : 'warning',
+      description: `어깨 정렬 ${r.roundShoulderAngle}° (정상 160-180°)`,
+    });
+  }
+
   if (issues.length === 0) {
     issues.push({
       name: '전반적 정렬 양호',
       severity: 'normal',
-      description: '주요 좌우 비대칭은 발견되지 않음',
+      description: '주요 비대칭/거북목/라운드숄더 패턴이 발견되지 않음',
     });
   }
 
-  // 측면 방향 추천: 골반/어깨가 더 기운 쪽(=문제가 있는 쪽)을 카메라에 보이게
+  // 정렬 점수: 비대칭 + FHP + 라운드숄더 감점
+  let score = 100;
+  score -= Math.min(20, shoulderAbs * 4);
+  score -= Math.min(20, pelvisAbs * 4);
+  if (r.fhpDeviation != null) score -= Math.min(25, r.fhpDeviation * 0.6);
+  if (r.roundShoulderAngle != null && r.roundShoulderAngle < 180) {
+    score -= Math.min(20, (180 - r.roundShoulderAngle) * 1.2);
+  }
+  const alignmentScore = Math.max(20, Math.min(100, Math.round(score)));
+
+  // 측면 촬영 방향: 골반/어깨가 더 기운 쪽을 카메라에 보이게
   let dir: 'left' | 'right' | null = null;
   let message: string | undefined;
-  const dominantTilt = Math.abs(shoulderTilt) >= Math.abs(pelvisTilt) ? shoulderTilt : pelvisTilt;
+  const dominantTilt = shoulderAbs >= pelvisAbs ? r.shoulderTilt : r.pelvisTilt;
   if (Math.abs(dominantTilt) >= 2) {
     dir = dominantTilt > 0 ? 'right' : 'left';
     message =
@@ -323,8 +362,8 @@ function mockAnalyze(photoUri: string): StaticPoseResult {
   }
 
   return {
-    shoulderTilt,
-    pelvisTilt,
+    shoulderTilt: r.shoulderTilt,
+    pelvisTilt: r.pelvisTilt,
     alignmentScore,
     recommendedSideDirection: dir,
     recommendedSideMessage: message,
@@ -332,12 +371,4 @@ function mockAnalyze(photoUri: string): StaticPoseResult {
     analyzedAt: new Date().toISOString(),
     photoUri,
   };
-}
-
-function simpleHash(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i += 1) {
-    h = (h * 31 + s.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
 }
