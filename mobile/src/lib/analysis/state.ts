@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { AppConfig } from './config';
 import { load, store } from './storage';
 import type {
+  CompensationChain,
   JointAngles,
   JointRange,
   Landmark,
@@ -125,6 +126,7 @@ export interface ResultState {
   salesScript: SalesScriptStage[] | null;
   ptPlan: PtPlan | null;
   nasmPatterns: NasmPattern[] | null;
+  nasmChain: CompensationChain | null;
 }
 
 export interface SessionState {
@@ -267,6 +269,7 @@ const emptyResult = (prevSig: VideoSignature | null = null): ResultState => ({
   salesScript: null,
   ptPlan: null,
   nasmPatterns: null,
+  nasmChain: null,
 });
 
 export const useAnalysisStore = create<AnalysisStore>((set, get) => ({

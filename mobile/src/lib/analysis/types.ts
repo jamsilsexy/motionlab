@@ -102,29 +102,47 @@ export interface MemberSummary {
 
 export interface SalesScriptStage {
   step: 1 | 2 | 3 | 4 | 5;
-  title: string;
-  body: string;
+  label: string;
+  text: string;
 }
 
 export interface PtPlanPhase {
-  phase: number;
-  weeks: string;
+  num: number;
+  range: string;
+  color: string;
   goal: string;
-  sessions: number;
+  why: string;
+  exercises: string[];
 }
 
 export interface PtPlan {
   totalSessions: number;
   totalRange: string;
-  weeklyFrequency: number;
+  basis: string;
   phases: PtPlanPhase[];
+  trainerMsg: string;
 }
 
 export interface NasmPattern {
-  name: string;
-  severity: IssueSeverity;
-  rootCause: string;
-  compensationChain: string[];
+  type: string;
+  confidence: number;
+  emoji: string;
+}
+
+export interface CompensationChain {
+  chain: string[];
+  text: string;
+  root: string;
+}
+
+export interface MuscleDbEntry {
+  label: string;
+  overactive: string[];
+  underactive: string[];
+  phase1: string[];
+  phase2: string[];
+  phase3: string[];
+  cues: { wrong: string[]; right: string[] };
 }
 
 export interface StaticPoseIssue {

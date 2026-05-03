@@ -8,3 +8,4 @@ export * from './storage';
 export * from './engine';
 export * from './tracker';
 export * from './filter';
+export * from './nasm-engine';
