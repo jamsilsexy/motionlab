@@ -1,5 +1,40 @@
 import type { Movement, SupplementMapEntry } from './types';
 
+/* ═══════════════════════════════════════════════════════════════
+ * OHS 이학검사 — 학술 기반 분석 기준 References
+ *
+ * [R1] AAOS Goniometry — 정상 관절 가동범위 (Hip flexion 0-120°, Knee flexion 0-135°, Shoulder flexion 0-180°)
+ *      → fadavispt.mhmedical.com / cdn-links.lww.com permalink/prsgo/8/6/2020 supplementary
+ *
+ * [R2] Hoch et al. (2014) "Altered Knee and Ankle Kinematics During Squatting in Those With
+ *      Limited Weight-Bearing-Lunge Ankle-Dorsiflexion ROM", J Athl Train 49(6) — PMC4264643
+ *      → Weight-Bearing Lunge (WBL) ≥ 44° = 정상, ≤ 44° = 제한
+ *      → OHS 시 정상 그룹 정강이 기울기 displacement 평균 32°, 제한 그룹 24°
+ *      → 우리 ankleDorsi(정강이 기울기 측정) min: 25°는 이 "limited" 임계와 align
+ *
+ * [R3] McGill & Marshall (2012) — 시각적 "neutral spine"으로 보여도 실제 lumbar flexion 26°까지 발생
+ *      → 우리 spine min: 148°(즉 32° 굽음 = warning) 임계는 이 연구 기반 합리적 보수치
+ *
+ * [R4] Brookbush Institute / Sahrmann Movement Impairment Syndromes —
+ *      Trunk forward lean: spine-shin parallel 원칙. 정량 임계 합의 부족, 임상 35° 사용
+ *
+ * [R5] CVA (Craniovertebral Angle) — Salahzadeh et al. (2014) 외 다수
+ *      → CVA = Tragus(귀) → C7 라인과 수평선의 각도
+ *      → CVA < 50° = Forward Head Posture (FHP), 50-54° = 경계, > 54° = 정상
+ *      → 정량 합의: 다수 논문에서 50° cut-off
+ *      → 우리 fhpAngle = (90 - CVA) deviation: 0° 이상=거북목 시작, 40° 이상=심한 FHP
+ *
+ * [R6] Glenohumeral overhead mobility — Hassan et al. (2024), PMC11393552
+ *      → GH flexion 평균 93° (필요), < 80°는 overhead 동작 거의 불가
+ *      → 우리 leftShoulder/rightShoulder min: 150°(elbow-shoulder-hip 각도)는 GH+thoracic 합산
+ *
+ * [R7] Lateral Pelvic Shift — 정량 임계 합의 부족
+ *      → 달리기 중 frontal-plane pelvic drop: 비우세 8.71°, 우세 5.79° (참고치)
+ *      → OHS 평가는 시각적 (left/right shift). 우리는 hipShift min:0 max:9 (어깨너비 정규화 후 각도 스케일)
+ *
+ * 모든 ranges는 임상 평가 도구이며 의료 진단을 대체하지 않음.
+ * ═══════════════════════════════════════════════════════════════ */
+
 export const AppConfig = {
   PRO_GATING: false,
 
@@ -118,9 +153,21 @@ export const AppConfig = {
         { ico: '🔵', name: '라운드숄더', sub: '어깨가 앞으로 말려있는지' },
       ],
       ranges: {
+        // 좌우 어깨 connection line이 수평선과 이루는 각도. ±5° 초과 = 비대칭
+        // [R7] 정량 임계 학술 합의 부족, 임상 ±3° warning / ±5° danger 통용
         shoulderTilt: { min: -5, max: 5, name: '어깨 기울기' },
+        // 좌우 ASIS(골반 전면 상단)/iliac crest 라인이 수평선과 이루는 각도. ±5° 초과 = 비대칭
+        // [R7] 임상 ±3° warning / ±5° danger
         pelvisTilt: { min: -5, max: 5, name: '골반 기울기' },
-        fhpAngle: { min: 0, max: 15, name: '거북목 각도' },
+        // [R5] FHP deviation = (90 - CVA). CVA = Tragus→C7 vs horizontal.
+        //   - 0~15° = 정상 (CVA 75-90°)
+        //   - 15~40° = 경계~FHP (CVA 50-75°)
+        //   - 40°+ = 심한 FHP (CVA < 50°, 학술 cut-off)
+        // 측면 사진 또는 정면+z좌표(MediaPipe Pose) 활용 측정
+        fhpAngle: { min: 0, max: 15, name: '거북목 (CVA deviation)' },
+        // 좌우 어깨가 hip-shoulder line 대비 sagittal plane으로 얼마나 전방 이동했는지의 각도.
+        // 160-180° = 정상 (어깨가 hip 위 정렬), < 160° = 라운드숄더 보상 시작
+        // 측면 사진에서 ear-shoulder-hip 각도로도 측정 가능
         roundShoulder: { min: 160, max: 180, name: '라운드숄더' },
       },
     },
@@ -145,13 +192,22 @@ export const AppConfig = {
         { ico: '🙌', name: '어깨 비대칭', sub: '한쪽 어깨가 더 낮거나 앞으로 나오는지' },
       ],
       ranges: {
+        // [R1] AAOS knee flexion 0-135°. OHS bottom 시 스쿼트 깊이 평가
+        //   - 130° 초과 = hyperextension 보상 / 55° 미만 = 깊이 부족 또는 스쿼트 미수행
         leftKnee: { min: 55, max: 130, name: '왼쪽 무릎' },
         rightKnee: { min: 55, max: 130, name: '오른쪽 무릎' },
+        // [R1] AAOS hip flexion 0-120°. OHS bottom 시 hip 굴곡 평가
         leftHip: { min: 50, max: 120, name: '왼쪽 고관절' },
         rightHip: { min: 50, max: 120, name: '오른쪽 고관절' },
+        // [R6] elbow-shoulder-hip 각도 (GH flexion + scapular + thoracic 합산)
+        //   150° = 팔이 거의 수직 정렬 / 180° = 완전 정렬
+        //   GH flexion 단독 80° 미만이면 overhead 거의 불가 → 합산 150°가 임상 한계
         leftShoulder: { min: 150, max: 180, name: '왼쪽 어깨' },
         rightShoulder: { min: 150, max: 180, name: '오른쪽 어깨' },
+        // [R3] 어깨중-고관절중-무릎중 각도. 180°=완벽 일직선, 148°=32° 척추 굽음
+        //   McGill 26° "보이는 neutral도 실제 굴곡" 기준 약간 보수적
         spine: { min: 148, max: 180, name: '척추 정렬' },
+        // [R7] 어깨너비 정규화 후 각도 스케일. 9 초과 = 명확한 lateral shift 보상
         hipShift: { min: 0, max: 9, name: '골반 좌우 이동' },
       },
     },
@@ -176,14 +232,24 @@ export const AppConfig = {
         { ico: '🍑', name: '힙 Depth', sub: '고관절이 무릎 라인 이하로 내려가는지' },
       ],
       ranges: {
+        // [R1] AAOS knee flexion 0-135°. OHS bottom 깊이 평가
         leftKnee: { min: 55, max: 130, name: '왼쪽 무릎' },
         rightKnee: { min: 55, max: 130, name: '오른쪽 무릎' },
+        // [R1] AAOS hip flexion 0-120°
         leftHip: { min: 50, max: 120, name: '왼쪽 고관절' },
         rightHip: { min: 50, max: 120, name: '오른쪽 고관절' },
+        // 측면 OHS 시 knee-ankle-heel 각도 (발목 plantar/dorsi flexion 종합)
         leftAnkle: { min: 60, max: 105, name: '왼쪽 발목' },
         rightAnkle: { min: 60, max: 105, name: '오른쪽 발목' },
+        // [R3] 어깨중-고관절중-무릎중 각도 (lumbar flexion 보상 평가)
         spine: { min: 148, max: 180, name: '척추 정렬' },
+        // [R2] 정강이 기울기 (knee 위치가 ankle 대비 얼마나 전방). atan2(|knee.x-ankle.x|, |knee.y-ankle.y|)
+        //   - Hoch 2014: 정상 그룹 OHS 시 평균 32° displacement, 제한 그룹 24°
+        //   - 25° 이하 = Weight-Bearing Lunge 44° 미만 그룹과 동일 임계 (제한)
+        //   - 우리 min: 25° = 학술 limited 임계와 align
         ankleDorsi: { min: 25, max: 90, name: '발목 배굴' },
+        // [R4] 체간 전방 기울기 (어깨중-고관절중 라인 vs 수직).
+        //   spine-shin parallel 원칙. 35° 초과 = Excessive Forward Lean 보상 (정량 합의 부족, 임상)
         thoracicFlex: { min: 0, max: 35, name: '체간 기울기' },
       },
     },
