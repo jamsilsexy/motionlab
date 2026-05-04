@@ -126,6 +126,8 @@ export interface PtPlanPhase {
   goal: string;
   why: string;
   exercises: string[];
+  /** B-8: 풍부 카드용 ID 참조 (있으면 string[] 대신 우선 표시) */
+  exerciseRefs?: ExerciseRef[];
 }
 
 export interface PtPlan {
@@ -155,6 +157,10 @@ export interface MuscleDbEntry {
   phase1: string[];
   phase2: string[];
   phase3: string[];
+  /** B-8: phase별 ExerciseRef 배열 (있으면 string[] 대신 우선 표시) */
+  phase1Refs?: ExerciseRef[];
+  phase2Refs?: ExerciseRef[];
+  phase3Refs?: ExerciseRef[];
   cues: { wrong: string[]; right: string[] };
 }
 
@@ -173,4 +179,41 @@ export interface StaticPoseResult {
   issues: StaticPoseIssue[];
   analyzedAt: string;
   photoUri?: string;
+}
+
+/* ─────────────────────────────────────────────────────────
+   B-8 운동 처방 DB
+   ──────────────────────────────────────────────────────── */
+
+export type ExerciseCategory =
+  | 'mobility' // 가동성 (스트레칭/SMR/CARs)
+  | 'stability' // 안정성 (코어/호흡/관절 안정화)
+  | 'strength' // 근력 (저항/복합 운동)
+  | 'pattern'; // 패턴 재교육 (hinge/squat/carry/balance)
+
+export type ExerciseRegion = 'ankle' | 'knee' | 'hip' | 'spine' | 'shoulder' | 'core';
+
+export type ExerciseLevel = 1 | 2 | 3; // phase 매핑: 1=초기/이완, 2=재교육/안정화, 3=강화/통합
+
+export interface ExerciseEntry {
+  id: string;
+  name: string; // 한글 표시명 (generic public domain)
+  nameEn?: string; // 영문명 (참조용)
+  category: ExerciseCategory;
+  regions: ExerciseRegion[];
+  level: ExerciseLevel;
+  defaultSets: string; // 예: '3세트'
+  defaultReps: string; // 예: '15회', '60초', '20걸음'
+  equipment: string[]; // ['맨몸'], ['폼롤러'], ['미니밴드'], ['덤벨/케틀벨']
+  cues?: string[]; // 코칭 큐 1-3개 (오감각 표현)
+  effect?: string; // 한 줄 효과 (회원/트레이너 모두 이해)
+  caution?: string; // 주의 사항 (선택)
+}
+
+/** phase 안에서 같은 운동도 다른 횟수로 처방 가능 — sets/reps override 허용 */
+export interface ExerciseRef {
+  id: string;
+  setsOverride?: string;
+  repsOverride?: string;
+  note?: string; // phase-specific 메모 ("약한 쪽 먼저" 등)
 }

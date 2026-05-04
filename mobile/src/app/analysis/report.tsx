@@ -11,6 +11,8 @@ import {
   NASMEngine,
   type Capture,
   type CompensationChain,
+  type ExerciseEntry,
+  type ExerciseRef,
   type JointAngles,
   type JointSummaryEntry,
   type MemberSummary,
@@ -22,6 +24,7 @@ import {
   type StaticPoseResult,
   type VideoSignature,
   devOf,
+  getExercise,
   useAnalysisStore,
 } from '@/lib/analysis';
 
@@ -117,7 +120,7 @@ export default function ReportScreen() {
         <ModeToggle mode={mode} onChange={setMode} />
 
         {mode === 'member' ? (
-          <MemberView summary={memberSummary} />
+          <MemberView summary={memberSummary} plan={ptPlan} />
         ) : (
           <TrainerView
             patterns={nasmPatterns}
@@ -178,7 +181,7 @@ function ModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
   );
 }
 
-function MemberView({ summary }: { summary: MemberSummary }) {
+function MemberView({ summary, plan }: { summary: MemberSummary; plan: PtPlan }) {
   return (
     <View>
       <View className="mt-4 rounded-lg bg-indigo-50 p-3">
@@ -187,6 +190,7 @@ function MemberView({ summary }: { summary: MemberSummary }) {
         </Text>
       </View>
       <Tab1MemberSummary summary={summary} />
+      <PtPlanCard plan={plan} mode="member" />
     </View>
   );
 }
@@ -213,7 +217,7 @@ function TrainerView({
       </View>
       <Tab2NasmPatterns patterns={patterns} chain={chain} />
       <Tab3SalesScript stages={stages} />
-      <PtPlanCard plan={plan} />
+      <PtPlanCard plan={plan} mode="trainer" />
       <PerStageResults allResults={allResults} />
     </View>
   );
@@ -514,7 +518,7 @@ function Tab3SalesScript({ stages }: { stages: SalesScriptStage[] }) {
   );
 }
 
-function PtPlanCard({ plan }: { plan: PtPlan }) {
+function PtPlanCard({ plan, mode }: { plan: PtPlan; mode: ViewMode }) {
   return (
     <View className="mt-6">
       <Text className="text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -546,26 +550,173 @@ function PtPlanCard({ plan }: { plan: PtPlan }) {
                 <Text className="flex-1 text-xs font-semibold text-gray-900">{ph.range}</Text>
               </View>
               <Text className="mt-1 text-xs font-semibold text-gray-800">{ph.goal}</Text>
-              <Text className="mt-1 text-[11px] leading-4 text-gray-600">{ph.why}</Text>
-              {ph.exercises.length > 0 && (
-                <View className="mt-1.5">
-                  {ph.exercises.map((ex, i) => (
-                    <Text key={i} className="text-[11px] leading-4 text-gray-700">
-                      • {ex}
-                    </Text>
-                  ))}
-                </View>
+              {mode === 'trainer' && (
+                <Text className="mt-1 text-[11px] leading-4 text-gray-600">{ph.why}</Text>
               )}
+              <PhaseExerciseList
+                refs={ph.exerciseRefs}
+                fallback={ph.exercises}
+                mode={mode}
+              />
             </View>
           ))}
         </View>
 
-        {plan.trainerMsg ? (
+        {plan.trainerMsg && mode === 'trainer' ? (
           <View className="mt-3 rounded-md bg-amber-50 p-2.5">
             <Text className="text-[11px] leading-4 text-amber-900">{plan.trainerMsg}</Text>
           </View>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   B-8d: 운동 카드 — 회원 모드는 친근, 트레이너 모드는 풀 처방
+   ───────────────────────────────────────────────────────────── */
+
+function PhaseExerciseList({
+  refs,
+  fallback,
+  mode,
+}: {
+  refs: ExerciseRef[] | undefined;
+  fallback: string[];
+  mode: ViewMode;
+}) {
+  if (refs && refs.length > 0) {
+    return (
+      <View className="mt-2">
+        {refs.map((ref, i) => {
+          const ex = getExercise(ref.id);
+          if (!ex) {
+            return (
+              <Text key={i} className="text-[11px] leading-4 text-gray-700">
+                • {ref.id}
+              </Text>
+            );
+          }
+          return <ExerciseCard key={ref.id + i} exercise={ex} ref_={ref} mode={mode} />;
+        })}
+      </View>
+    );
+  }
+  if (fallback.length === 0) return null;
+  return (
+    <View className="mt-1.5">
+      {fallback.map((ex, i) => (
+        <Text key={i} className="text-[11px] leading-4 text-gray-700">
+          • {ex}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+const CATEGORY_LABEL: Record<string, { label: string; bg: string; fg: string }> = {
+  mobility: { label: '가동성', bg: '#ecfeff', fg: '#0e7490' },
+  stability: { label: '안정성', bg: '#fef3c7', fg: '#92400e' },
+  strength: { label: '근력', bg: '#fee2e2', fg: '#991b1b' },
+  pattern: { label: '패턴', bg: '#dcfce7', fg: '#166534' },
+};
+
+function ExerciseCard({
+  exercise,
+  ref_,
+  mode,
+}: {
+  exercise: ExerciseEntry;
+  ref_: ExerciseRef;
+  mode: ViewMode;
+}) {
+  const cat = CATEGORY_LABEL[exercise.category];
+  const sets = ref_.setsOverride ?? exercise.defaultSets;
+  const reps = ref_.repsOverride ?? exercise.defaultReps;
+
+  // 회원 모드: 간소 카드 (이름 + 효과 + 짧은 큐 1개)
+  if (mode === 'member') {
+    return (
+      <View className="mt-1.5 rounded-md bg-white p-2.5" style={{ borderWidth: 1, borderColor: '#e5e7eb' }}>
+        <View className="flex-row items-start">
+          <View
+            className="mr-2 rounded px-1.5 py-0.5"
+            style={{ backgroundColor: cat.bg }}
+          >
+            <Text className="text-[9px] font-bold" style={{ color: cat.fg }}>
+              {cat.label}
+            </Text>
+          </View>
+          <Text className="flex-1 text-xs font-semibold text-gray-900">{exercise.name}</Text>
+          <Text className="ml-1 text-[10px] text-gray-500">
+            {reps} · {sets}
+          </Text>
+        </View>
+        {exercise.effect ? (
+          <Text className="mt-1 text-[11px] leading-4 text-gray-700">→ {exercise.effect}</Text>
+        ) : null}
+        {exercise.cues && exercise.cues.length > 0 ? (
+          <Text className="mt-0.5 text-[10px] leading-4 text-indigo-700">
+            💡 {exercise.cues[0]}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
+
+  // 트레이너 모드: 풀 카드 (이름 + 분류 + sets/reps + 장비 + 큐 전체 + 효과 + 주의)
+  return (
+    <View
+      className="mt-1.5 rounded-md bg-white p-2.5"
+      style={{ borderWidth: 1, borderColor: '#e5e7eb' }}
+    >
+      <View className="flex-row items-start">
+        <View
+          className="mr-2 rounded px-1.5 py-0.5"
+          style={{ backgroundColor: cat.bg }}
+        >
+          <Text className="text-[9px] font-bold" style={{ color: cat.fg }}>
+            {cat.label}
+          </Text>
+        </View>
+        <View className="flex-1">
+          <Text className="text-xs font-semibold text-gray-900">{exercise.name}</Text>
+          {exercise.nameEn ? (
+            <Text className="text-[9px] text-gray-400">{exercise.nameEn}</Text>
+          ) : null}
+        </View>
+        <Text className="ml-1 text-[10px] font-semibold text-indigo-700">
+          {reps} · {sets}
+        </Text>
+      </View>
+
+      {exercise.equipment && exercise.equipment.length > 0 ? (
+        <Text className="mt-1 text-[10px] text-gray-500">
+          🛠 {exercise.equipment.join(' / ')}
+        </Text>
+      ) : null}
+
+      {ref_.note ? (
+        <Text className="mt-1 text-[10px] font-semibold text-amber-700">⚑ {ref_.note}</Text>
+      ) : null}
+
+      {exercise.cues && exercise.cues.length > 0 ? (
+        <View className="mt-1">
+          {exercise.cues.map((cue, i) => (
+            <Text key={i} className="text-[10px] leading-4 text-indigo-700">
+              💡 {cue}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+
+      {exercise.effect ? (
+        <Text className="mt-1 text-[10px] leading-4 text-gray-600">→ {exercise.effect}</Text>
+      ) : null}
+
+      {exercise.caution ? (
+        <Text className="mt-1 text-[10px] leading-4 text-red-600">⚠ {exercise.caution}</Text>
+      ) : null}
     </View>
   );
 }

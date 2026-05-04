@@ -12,6 +12,7 @@ import {
 } from './state';
 import { SquatTracker } from './tracker';
 import type {
+  ExerciseRef,
   JointAngles,
   JointRange,
   Landmark,
@@ -1215,6 +1216,7 @@ function calcPtPlan(
       goal: curr.p1.goal,
       why: curr.p1.why,
       exercises: curr.p1.exercises,
+      exerciseRefs: curr.p1.exerciseRefs,
     });
     phases.push({
       num: 2,
@@ -1223,6 +1225,7 @@ function calcPtPlan(
       goal: curr.p2.goal,
       why: curr.p2.why,
       exercises: curr.p2.exercises,
+      exerciseRefs: curr.p2.exerciseRefs,
     });
     if (base > 10) {
       phases.push({
@@ -1232,6 +1235,7 @@ function calcPtPlan(
         goal: curr.p3.goal,
         why: curr.p3.why,
         exercises: curr.p3.exercises,
+        exerciseRefs: curr.p3.exerciseRefs,
       });
     }
   } else if (base <= 18) {
@@ -1242,6 +1246,7 @@ function calcPtPlan(
       goal: curr.p1.goal,
       why: curr.p1.why,
       exercises: curr.p1.exercises,
+      exerciseRefs: curr.p1.exerciseRefs,
     });
     phases.push({
       num: 2,
@@ -1250,6 +1255,7 @@ function calcPtPlan(
       goal: curr.p2.goal,
       why: curr.p2.why,
       exercises: curr.p2.exercises,
+      exerciseRefs: curr.p2.exerciseRefs,
     });
     phases.push({
       num: 3,
@@ -1258,6 +1264,7 @@ function calcPtPlan(
       goal: curr.p3.goal,
       why: curr.p3.why,
       exercises: curr.p3.exercises,
+      exerciseRefs: curr.p3.exerciseRefs,
     });
   } else {
     const mid = Math.floor(base * 0.6);
@@ -1268,6 +1275,7 @@ function calcPtPlan(
       goal: curr.p1.goal,
       why: curr.p1.why,
       exercises: curr.p1.exercises,
+      exerciseRefs: curr.p1.exerciseRefs,
     });
     phases.push({
       num: 2,
@@ -1276,6 +1284,7 @@ function calcPtPlan(
       goal: curr.p2.goal,
       why: curr.p2.why,
       exercises: curr.p2.exercises,
+      exerciseRefs: curr.p2.exerciseRefs,
     });
     phases.push({
       num: 3,
@@ -1284,6 +1293,7 @@ function calcPtPlan(
       goal: curr.p3.goal,
       why: curr.p3.why,
       exercises: curr.p3.exercises,
+      exerciseRefs: curr.p3.exerciseRefs,
     });
     phases.push({
       num: 4,
@@ -1296,6 +1306,11 @@ function calcPtPlan(
         '점진적 과부하 복합 운동',
         '스포츠·생활 동작 적용 훈련',
         '자가 교정 프로그램 구성',
+      ],
+      exerciseRefs: [
+        { id: 'turkish-get-up' },
+        { id: 'barbell-back-squat' },
+        { id: 'farmer-carry' },
       ],
     });
   }
@@ -1323,6 +1338,8 @@ interface CurriculumStage {
   goal: string;
   why: string;
   exercises: string[];
+  /** B-8: 풍부 카드용 ID 참조 (있으면 string[] 대신 우선 표시) */
+  exerciseRefs?: ExerciseRef[];
 }
 interface CurriculumEntry {
   p1: CurriculumStage;
@@ -1341,6 +1358,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         '90/90 Hip Lift 2×5회 (횡격막-골반저 연결)',
         '캣-카우 분절 가동 2×10회',
       ],
+      exerciseRefs: [
+        { id: 'diaphragmatic-breathing' },
+        { id: 'mcgill-curl-up' },
+        { id: '90-90-hip-lift' },
+        { id: 'cat-camel' },
+      ],
     },
     p2: {
       goal: '심부 코어 신경근 재교육',
@@ -1351,6 +1374,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'McGill Side Plank 3×20초 (최대 60초까지 progression)',
         'Pallof Press 3×10회 (반회전 저항 훈련)',
       ],
+      exerciseRefs: [
+        { id: 'dead-bug' },
+        { id: 'bird-dog' },
+        { id: 'side-plank' },
+        { id: 'pallof-press' },
+      ],
     },
     p3: {
       goal: '기능적 패턴 통합 & 점진적 부하',
@@ -1360,6 +1389,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Goblet Squat 3×10회 (척추 중립 큐잉 병행)',
         'Single Arm KB Row 3×10회 (안정화 유지)',
         '점진적 중량 추가 (매 2회 5~10% 증가)',
+      ],
+      exerciseRefs: [
+        { id: 'trap-bar-deadlift' },
+        { id: 'goblet-squat' },
+        { id: 'trx-row' },
+        { id: 'farmer-carry' },
       ],
     },
   },
@@ -1373,6 +1408,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Side-lying Hip Abduction 3×15회 (무게 없이 정확성 우선)',
         '엎드려 Hip External Rotation 2×15회',
       ],
+      exerciseRefs: [
+        { id: 'foam-roll-tfl-itband' },
+        { id: 'foam-roll-adductor' },
+        { id: 'clamshell' },
+        { id: 'side-lying-hip-abduction' },
+      ],
     },
     p2: {
       goal: '무릎 추적 패턴 재교육',
@@ -1383,6 +1424,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Step-up 3×10회 (무릎 추적 확인하며)',
         'Bulgarian Split Squat 2×8회 (약한 쪽 먼저)',
       ],
+      exerciseRefs: [
+        { id: 'mini-band-side-walk' },
+        { id: 'mini-band-squat' },
+        { id: 'step-up' },
+        { id: 'bulgarian-split-squat', note: '약한 쪽 먼저' },
+      ],
     },
     p3: {
       goal: '단측 하지 강화 & 동적 안정화',
@@ -1392,6 +1439,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Lateral Step Down 3×10회 (편심성 제어)',
         'KB Suitcase Carry 3×20m (골반 수평 유지)',
         '점진적 점프 착지 훈련 (양발→한발)',
+      ],
+      exerciseRefs: [
+        { id: 'single-leg-squat' },
+        { id: 'lateral-step-down' },
+        { id: 'kb-suitcase-carry' },
+        { id: 'box-step-down' },
       ],
     },
   },
@@ -1405,6 +1458,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Hip CARs (Controlled Articular Rotations) 2×5회',
         'Thomas Test Stretch 2×45초 (장요근 대상)',
       ],
+      exerciseRefs: [
+        { id: '90-90-hip-stretch' },
+        { id: 'half-kneeling-hip-flexor-stretch' },
+        { id: 'hip-cars' },
+        { id: 'thomas-test-stretch' },
+      ],
     },
     p2: {
       goal: '힙 힌지 패턴 & 후방 체인 활성화',
@@ -1415,6 +1474,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Single Leg RDL (무게 없이) 3×8회',
         'Glute Bridge 3×12회 5초 정지',
       ],
+      exerciseRefs: [
+        { id: 'hip-hinge' },
+        { id: 'kb-deadlift' },
+        { id: 'single-leg-rdl' },
+        { id: 'glute-bridge' },
+      ],
     },
     p3: {
       goal: '복합 하체 패턴 강화',
@@ -1424,6 +1489,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Goblet Squat to Box 3×10회',
         'Lateral Lunge 3×8회 (고관절 외전·굴곡 통합)',
         'Farmer Carry 3×30m',
+      ],
+      exerciseRefs: [
+        { id: 'trap-bar-deadlift' },
+        { id: 'goblet-squat-to-box' },
+        { id: 'lateral-lunge' },
+        { id: 'farmer-carry' },
       ],
     },
   },
@@ -1437,6 +1508,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         '벽 발목 배굴 드릴 2×10회 (5cm 거리에서 시작)',
         'Ankle CARs 2×5회 (완전 가동 범위)',
       ],
+      exerciseRefs: [
+        { id: 'gastroc-stretch' },
+        { id: 'soleus-stretch' },
+        { id: 'wall-ankle-mobility' },
+        { id: 'ankle-cars' },
+      ],
     },
     p2: {
       goal: '기능적 배굴 재훈련 & 체중 부하',
@@ -1447,6 +1524,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Single Leg Calf Raise 3×15회 (편심성 포함)',
         'Slant Board Squat 3×10회',
       ],
+      exerciseRefs: [
+        { id: 'heel-elevated-goblet-squat' },
+        { id: 'banded-dorsiflexion' },
+        { id: 'single-leg-calf-raise' },
+        { id: 'slant-board-squat' },
+      ],
     },
     p3: {
       goal: '동적 발목 안정성 & 하체 패턴 통합',
@@ -1456,6 +1539,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Box Step-down 3×10회 (발목 제어)',
         'Full Depth Goblet Squat 3×10회 (heel flat)',
         '점프 착지 + 발목 충격 흡수 훈련',
+      ],
+      exerciseRefs: [
+        { id: 'single-leg-balance' },
+        { id: 'box-step-down' },
+        { id: 'goblet-squat' },
+        { id: 'turkish-get-up' },
       ],
     },
   },
@@ -1469,6 +1558,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Wall Angel 2×10회 (등·머리·엉덩이 벽 접촉)',
         'Sleeper Stretch 2×45초 (내회전 제한 시)',
       ],
+      exerciseRefs: [
+        { id: 'pec-minor-doorway-stretch' },
+        { id: 'foam-roll-thoracic' },
+        { id: 'wall-angel' },
+        { id: 'sleeper-stretch', note: '내회전 제한 시' },
+      ],
     },
     p2: {
       goal: '견갑골 안정화 & 회전근개 활성화',
@@ -1479,6 +1574,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'KB Bottoms-up Press 2×8회 (회전근개 공동 수축)',
         'Side-lying External Rotation 3×15회',
       ],
+      exerciseRefs: [
+        { id: 'band-face-pull' },
+        { id: 'ytw-raises' },
+        { id: 'kb-bottoms-up-press' },
+        { id: 'side-lying-external-rotation' },
+      ],
     },
     p3: {
       goal: '오버헤드 패턴 & 상체 복합 강화',
@@ -1488,6 +1589,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Seated Cable Row 3×12회',
         'Landmine Press 3×10회 (오버헤드 진입 전 단계)',
         'Pull-up 또는 Lat Pulldown 3×10회',
+      ],
+      exerciseRefs: [
+        { id: 'half-kneeling-press' },
+        { id: 'seated-cable-row' },
+        { id: 'landmine-press' },
+        { id: 'pull-up' },
       ],
     },
   },
@@ -1501,6 +1608,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         '호흡·코어 기초 (복식호흡 + IAP)',
         '기초 힙 힌지 & 스쿼트 패턴 확인',
       ],
+      exerciseRefs: [
+        { id: 'ankle-cars' },
+        { id: 'hip-cars' },
+        { id: 'diaphragmatic-breathing' },
+        { id: 'hip-hinge' },
+      ],
     },
     p2: {
       goal: '기본 움직임 패턴 강화',
@@ -1512,6 +1625,13 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'TRX Row 3×12회',
         'Farmer Carry 3×30m',
       ],
+      exerciseRefs: [
+        { id: 'goblet-squat' },
+        { id: 'kb-deadlift' },
+        { id: 'push-up' },
+        { id: 'trx-row' },
+        { id: 'farmer-carry' },
+      ],
     },
     p3: {
       goal: '점진적 부하 & 복합 운동 통합',
@@ -1521,6 +1641,12 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
         'Bench Press + Bent-over Row 3×10회',
         'Turkish Get-up 2×3회 (전신 통합)',
         '운동별 1RM 측정 & 목표 설정',
+      ],
+      exerciseRefs: [
+        { id: 'barbell-back-squat' },
+        { id: 'trap-bar-deadlift' },
+        { id: 'pull-up' },
+        { id: 'turkish-get-up' },
       ],
     },
   },

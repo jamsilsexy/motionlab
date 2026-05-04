@@ -19,6 +19,9 @@ import type {
  *   는 HTML 빌더라 mobile에서는 RN 컴포넌트가 직접 데이터 읽어 그림.
  * ═══════════════════════════════════════════════════════════ */
 
+/* B-8: 각 관절·이슈별 phase1/2/3 → string[]은 fallback (구버전 호환),
+   phase1Refs/phase2Refs/phase3Refs는 EXERCISE_DB id 참조 — 카드 UI에서 우선 사용.
+   exercise-db.ts의 ExerciseEntry로 한글명/sets/reps/cues/effect를 자동 채움. */
 export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
   leftKnee: {
     label: '왼쪽 무릎 Valgus',
@@ -29,12 +32,26 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
       '폼롤러: TFL/IT밴드 롤링 60초',
       '비복근 스트레칭 30초 × 3',
     ],
+    phase1Refs: [
+      { id: 'foam-roll-adductor' },
+      { id: 'foam-roll-tfl-itband' },
+      { id: 'gastroc-stretch' },
+    ],
     phase2: [
       'Clamshell 15회 × 3세트',
       'Side-lying Hip Abduction 15회 × 3',
       'Monster Walk (밴드) 20보 × 3',
     ],
+    phase2Refs: [
+      { id: 'clamshell' },
+      { id: 'side-lying-hip-abduction' },
+      { id: 'mini-band-side-walk', note: '약한 쪽 먼저' },
+    ],
     phase3: ['고블릿 스쿼트 (무릎 정렬 유지) 10회 × 3', '싱글레그 스쿼트 8회 × 3'],
+    phase3Refs: [
+      { id: 'goblet-squat' },
+      { id: 'single-leg-squat' },
+    ],
     cues: {
       wrong: ['무릎 벌려요', '발 안으로 넣어요'],
       right: ['발바닥 바깥쪽 세 곳 눌러', '엉덩이로 바닥 밀어내듯이'],
@@ -45,8 +62,11 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
     overactive: ['내전근', '대퇴근막장근(TFL)', '비복근'],
     underactive: ['중둔근', '대둔근', '내측광근(VMO)'],
     phase1: ['폼롤러: 내전근 롤링 60초', '폼롤러: TFL/IT밴드 롤링 60초'],
+    phase1Refs: [{ id: 'foam-roll-adductor' }, { id: 'foam-roll-tfl-itband' }],
     phase2: ['Clamshell 15회 × 3세트', 'Side-lying Hip Abduction 15회 × 3'],
+    phase2Refs: [{ id: 'clamshell' }, { id: 'side-lying-hip-abduction' }],
     phase3: ['고블릿 스쿼트 10회 × 3', '싱글레그 스쿼트 8회 × 3'],
+    phase3Refs: [{ id: 'goblet-squat' }, { id: 'single-leg-squat' }],
     cues: { wrong: ['무릎 벌려요'], right: ['발바닥 바깥쪽 눌러', '엉덩이로 밀어내듯이'] },
   },
   spine: {
@@ -54,8 +74,11 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
     overactive: ['척추 기립근', '요방형근', '장요근'],
     underactive: ['복횡근', '다열근', '골반저근'],
     phase1: ['폼롤러 흉추 신전 30초 × 3', '고양이-낙타 스트레칭 10회'],
+    phase1Refs: [{ id: 'foam-roll-thoracic' }, { id: 'cat-camel' }, { id: 'diaphragmatic-breathing' }],
     phase2: ['Dead Bug 10회 × 3', 'Bird Dog 10회 × 3', 'Plank (복압 유지) 30초 × 3'],
+    phase2Refs: [{ id: 'dead-bug' }, { id: 'bird-dog' }, { id: 'plank' }],
     phase3: ['박스 스쿼트 (척추 중립) 10회 × 3', '루마니안 데드리프트 10회 × 3'],
+    phase3Refs: [{ id: 'goblet-squat-to-box' }, { id: 'kb-deadlift' }],
     cues: {
       wrong: ['허리 세워요', '가슴 펴요', '배 집어넣어요'],
       right: ['갈비뼈 내리고 숨 잡아', '배꼽을 등쪽으로', '키 1cm 커진다고 생각하고'],
@@ -66,12 +89,23 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
     overactive: ['장요근', '대퇴직근', '햄스트링'],
     underactive: ['대둔근', '심부 외회전근군'],
     phase1: ['런지 스트레칭 (장요근) 30초 × 3', '90/90 고관절 스트레칭 60초 × 3'],
+    phase1Refs: [
+      { id: 'half-kneeling-hip-flexor-stretch' },
+      { id: '90-90-hip-stretch' },
+      { id: 'hip-cars' },
+    ],
     phase2: [
       'Glute Bridge 15회 × 3',
       'Single-leg Glute Bridge 10회 × 3',
       'Hip CARs 5회 × 3',
     ],
+    phase2Refs: [
+      { id: 'glute-bridge' },
+      { id: 'single-leg-glute-bridge' },
+      { id: 'hip-hinge' },
+    ],
     phase3: ['고블릿 스쿼트 (깊이 개선) 10회', 'Bulgarian Split Squat 8회 × 3'],
+    phase3Refs: [{ id: 'goblet-squat' }, { id: 'bulgarian-split-squat' }],
     cues: {
       wrong: ['엉덩이 뒤로 빼요', '깊이 내려가요'],
       right: ['엉덩이를 두 발 사이로', '고관절부터 접어'],
@@ -82,8 +116,11 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
     overactive: ['장요근', '대퇴직근', '햄스트링'],
     underactive: ['대둔근', '심부 외회전근군'],
     phase1: ['런지 스트레칭 30초 × 3', '90/90 고관절 스트레칭 60초 × 3'],
+    phase1Refs: [{ id: 'half-kneeling-hip-flexor-stretch' }, { id: '90-90-hip-stretch' }],
     phase2: ['Glute Bridge 15회 × 3', 'Single-leg Glute Bridge 10회 × 3'],
+    phase2Refs: [{ id: 'glute-bridge' }, { id: 'single-leg-glute-bridge' }],
     phase3: ['고블릿 스쿼트 10회', 'Bulgarian Split Squat 8회 × 3'],
+    phase3Refs: [{ id: 'goblet-squat' }, { id: 'bulgarian-split-squat' }],
     cues: {
       wrong: ['엉덩이 뒤로 빼요'],
       right: ['엉덩이를 두 발 사이로', '고관절부터 접어'],
@@ -94,8 +131,19 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
     overactive: ['비복근', '가자미근', '후경골근'],
     underactive: ['전경골근', '장비골근'],
     phase1: ['종아리 폼롤러 롤링 60초', '벽 스트레칭 (발목 배굴) 30초 × 3'],
+    phase1Refs: [
+      { id: 'foam-roll-calf' },
+      { id: 'gastroc-stretch' },
+      { id: 'soleus-stretch' },
+    ],
     phase2: ['Ankle CARs 10회 × 3', '발목 배굴 밴드 저항 15회 × 3'],
+    phase2Refs: [
+      { id: 'ankle-cars' },
+      { id: 'banded-dorsiflexion' },
+      { id: 'wall-ankle-mobility' },
+    ],
     phase3: ['웨지 보조 스쿼트 → 일반 스쿼트 점진 전환'],
+    phase3Refs: [{ id: 'heel-elevated-goblet-squat' }, { id: 'slant-board-squat' }],
     cues: {
       wrong: ['발꿈치 들리지 마요'],
       right: ['발꿈치 땅에 붙이고 무릎 앞으로', '정강이가 신발 앞으로'],
@@ -106,8 +154,11 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
     overactive: ['비복근', '가자미근'],
     underactive: ['전경골근'],
     phase1: ['종아리 폼롤러 롤링 60초', '종아리 스트레칭 30초 × 3'],
+    phase1Refs: [{ id: 'foam-roll-calf' }, { id: 'gastroc-stretch' }],
     phase2: ['Ankle CARs 10회 × 3'],
+    phase2Refs: [{ id: 'ankle-cars' }, { id: 'banded-dorsiflexion' }],
     phase3: ['웨지 보조 스쿼트'],
+    phase3Refs: [{ id: 'heel-elevated-goblet-squat' }],
     cues: { wrong: ['발꿈치 들리지 마요'], right: ['발꿈치 땅에 붙이고 무릎 앞으로'] },
   },
   leftShoulder: {
@@ -119,8 +170,23 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
       '광배근 스트레칭 30초 × 3',
       '폼롤러 흉추 신전 30초 × 3',
     ],
+    phase1Refs: [
+      { id: 'pec-minor-doorway-stretch' },
+      { id: 'lat-stretch' },
+      { id: 'foam-roll-thoracic' },
+    ],
     phase2: ['Wall Slide 15회 × 3', '밴드 Face Pull 15회 × 3', 'Prone Y-T-W 10회 × 3'],
+    phase2Refs: [
+      { id: 'wall-slide' },
+      { id: 'band-face-pull' },
+      { id: 'ytw-raises' },
+    ],
     phase3: ['PVC 오버헤드 스쿼트 10회', '케이블 오버헤드 프레스 10회 × 3'],
+    phase3Refs: [
+      { id: 'half-kneeling-press' },
+      { id: 'landmine-press' },
+      { id: 'pull-up' },
+    ],
     cues: {
       wrong: ['팔 더 올려요', '어깨 내려요'],
       right: ['귀 옆에 팔 붙여', '겨드랑이로 호두 깨듯이', '날개뼈 뒤 주머니에 넣어'],
@@ -131,8 +197,11 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
     overactive: ['대흉근', '소흉근', '광배근'],
     underactive: ['중·하부 승모근', '전거근'],
     phase1: ['소흉근 스트레칭 30초 × 3', '폼롤러 흉추 신전 30초 × 3'],
+    phase1Refs: [{ id: 'pec-minor-doorway-stretch' }, { id: 'foam-roll-thoracic' }],
     phase2: ['Wall Slide 15회 × 3', '밴드 Face Pull 15회 × 3'],
+    phase2Refs: [{ id: 'wall-slide' }, { id: 'band-face-pull' }],
     phase3: ['PVC 오버헤드 스쿼트 10회'],
+    phase3Refs: [{ id: 'half-kneeling-press' }, { id: 'landmine-press' }],
     cues: { wrong: ['어깨 내려요'], right: ['귀 옆에 팔 붙여', '날개뼈 뒤로'] },
   },
   ankleDorsi: {
@@ -140,8 +209,11 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
     overactive: ['비복근', '가자미근'],
     underactive: ['전경골근'],
     phase1: ['종아리 폼롤러 60초', '솔레우스 스트레칭 (무릎 구부리고) 30초 × 3'],
+    phase1Refs: [{ id: 'foam-roll-calf' }, { id: 'soleus-stretch' }],
     phase2: ['Ankle CARs', '경사판 스쿼트'],
+    phase2Refs: [{ id: 'ankle-cars' }, { id: 'wall-ankle-mobility' }],
     phase3: ['박스 스쿼트 깊이 점진적 증가'],
+    phase3Refs: [{ id: 'slant-board-squat' }, { id: 'heel-elevated-goblet-squat' }],
     cues: { wrong: ['발꿈치 들리지 마요'], right: ['발꿈치 지면 유지하며 무릎 밀어'] },
   },
   thoracicFlex: {
@@ -149,8 +221,11 @@ export const MUSCLE_DB: Record<string, MuscleDbEntry> = {
     overactive: ['흉추 신전근', '광배근'],
     underactive: ['전거근', '흉추 신전근'],
     phase1: ['폼롤러 흉추 신전 30초 × 3', '오픈 북 스트레칭 10회 × 3'],
+    phase1Refs: [{ id: 'foam-roll-thoracic' }, { id: 'open-book' }, { id: 'cat-camel' }],
     phase2: ['Cat-Camel 10회 × 3', '흉추 회전 운동 10회 × 3'],
+    phase2Refs: [{ id: 'wall-angel' }, { id: 'open-book' }, { id: 'band-face-pull' }],
     phase3: ['팔 들고 스쿼트 (흉추 신전 유지)'],
+    phase3Refs: [{ id: 'half-kneeling-press' }, { id: 'pull-up' }],
     cues: { wrong: ['가슴 펴요'], right: ['흉골을 천장 쪽으로', '등을 길게 늘여'] },
   },
 };
