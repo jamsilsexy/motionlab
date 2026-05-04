@@ -325,6 +325,24 @@ function Tab1MemberSummary({ summary }: { summary: MemberSummary }) {
                   반복 {p.repCount}/{p.repTotal}회 감지
                 </Text>
               )}
+              {p.dailyImpact && (
+                <View className="mt-2 rounded-md bg-amber-50 p-2">
+                  <Text className="text-[10px] font-semibold text-amber-800">
+                    💢 지금 이런 불편함 있을 수 있어요
+                  </Text>
+                  <Text className="mt-0.5 text-[11px] leading-4 text-amber-900">
+                    {p.dailyImpact}
+                  </Text>
+                </View>
+              )}
+              {p.painRisk && (
+                <View className="mt-1.5 rounded-md bg-red-50 p-2">
+                  <Text className="text-[10px] font-semibold text-red-800">
+                    ⚠️ 그대로 두면 생길 수 있는 통증
+                  </Text>
+                  <Text className="mt-0.5 text-[11px] leading-4 text-red-900">{p.painRisk}</Text>
+                </View>
+              )}
             </View>
           ))}
         </>

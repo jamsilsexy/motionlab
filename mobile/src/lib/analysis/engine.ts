@@ -609,26 +609,26 @@ function buildMemberSummary(args: BuildSummaryArgs): MemberSummary {
       isOhs && topRec && totalReps > 0 ? `, ${totalReps}회 중 ${topRec.count}회 반복` : '';
     const topName = topC ? PLAIN_JOINT_NAME[topC.jointKey] || topC.jointName : '';
 
-    let core = `${topName}에서 ${topDev}° 이탈 패턴이 가장 두드러집니다${topRecStr}.`;
+    let core = `${topName}이(가) 평소보다 ${topDev}° 정도 벗어나 있어요${topRecStr}.`;
     if (sig.leftRightDiff !== undefined && sig.leftRightDiff >= 12) {
-      core += ` 좌우 ${sig.leftRightJoint || '관절'} 차이가 ${sig.leftRightDiff}°로 불균형이 명확합니다.`;
+      core += ` 왼쪽과 오른쪽 ${sig.leftRightJoint || '관절'} 차이가 ${sig.leftRightDiff}°라서 한쪽으로 쏠려있어요.`;
     }
     if (sig.consistencyScore !== undefined && sig.consistencyScore < 65) {
-      core += ` 반복마다 폼 편차(일관성 ${sig.consistencyScore}점)가 커 피로 누적 시 부상 위험이 높습니다.`;
+      core += ` 반복할 때마다 자세가 들쑥날쑥해요(일관성 ${sig.consistencyScore}점). 피곤해지면 다칠 위험이 높아져요.`;
     }
     conclusion = core;
   }
 
   const goalSuffix: Record<string, string> = {
-    weight: '이 상태에서 운동 강도를 높이면 효율보다 부상 위험이 먼저 올라갑니다.',
+    weight: '이대로 운동 강도를 높이면 살 빼는 효과보다 다칠 위험이 먼저 올라가요.',
     performance:
-      `안정성 ${sig.avgStability ?? '-'}점 — ` +
+      `안정성 ${sig.avgStability ?? '-'}점이에요. ` +
       (sig.dominantJoint
-        ? `${PLAIN_JOINT_NAME[sig.dominantJoint] || sig.dominantJoint} 패턴 미교정 시`
-        : '이 패턴이') +
-      ' 중량 증가 시 부상으로 이어집니다.',
-    rehab: '지금 패턴 교정이 재활 목표 달성의 가장 빠른 길입니다.',
-    general: '일상 동작에서도 이 패턴이 반복되고 있을 가능성이 있습니다.',
+        ? `${PLAIN_JOINT_NAME[sig.dominantJoint] || sig.dominantJoint} 자세를 그대로 두고 무게를 더 들면`
+        : '이 자세 그대로 무게를 더 들면') +
+      ' 다칠 수 있어요.',
+    rehab: '지금 자세를 잡는 게 가장 빠른 회복법이에요.',
+    general: '평소 일상 동작에서도 같은 자세가 반복될 가능성이 있어요.',
   };
   if (criticals.length > 0 && goalSuffix[goal]) {
     conclusion += ' ' + goalSuffix[goal];
@@ -642,38 +642,66 @@ function buildMemberSummary(args: BuildSummaryArgs): MemberSummary {
     const dev = Math.round(devOf(c.angle, c.normalRange));
 
     const plainNames: Record<string, string> = {
-      spine: '허리가 굽는 패턴',
-      leftKnee: '왼쪽 무릎이 안으로 무너짐',
-      rightKnee: '오른쪽 무릎이 안으로 무너짐',
-      leftHip: '왼쪽 고관절 가동성 부족',
-      rightHip: '오른쪽 고관절 가동성 부족',
-      leftAnkle: '왼쪽 발목 굽힘 제한',
-      rightAnkle: '오른쪽 발목 굽힘 제한',
-      leftShoulder: '왼쪽 어깨 정렬 이탈',
-      rightShoulder: '오른쪽 어깨 정렬 이탈',
+      spine: '허리가 굽어요',
+      leftKnee: '왼쪽 무릎이 안으로 쏠려요',
+      rightKnee: '오른쪽 무릎이 안으로 쏠려요',
+      leftHip: '왼쪽 엉덩이 관절이 잘 안 굽어요',
+      rightHip: '오른쪽 엉덩이 관절이 잘 안 굽어요',
+      leftAnkle: '왼쪽 발목이 잘 안 굽어요',
+      rightAnkle: '오른쪽 발목이 잘 안 굽어요',
+      leftShoulder: '왼쪽 어깨가 비뚤어요',
+      rightShoulder: '오른쪽 어깨가 비뚤어요',
     };
 
     const plainDescs: Record<string, string> = {
-      spine: `요추-골반 복합체의 안정화 기전이 무너져 ${dev}° 굴곡이 발생합니다. 이는 척추 기립근의 과활성과 디스크 후방 압력을 높이는 주원인이 됩니다.`,
-      leftKnee: `고관절 외회전근(중둔근)의 통제력 부족으로 대퇴골이 내전/내회전되며 무릎이 ${dev}° 안으로 쏠립니다. 이는 반월상 연골과 내측 인대에 비정상적인 전단력을 가합니다.`,
-      rightKnee: `고관절 외회전근(중둔근)의 통제력 부족으로 대퇴골이 내전/내회전되며 무릎이 ${dev}° 안으로 쏠립니다. 이는 반월상 연골과 내측 인대에 비정상적인 전단력을 가합니다.`,
-      leftHip: `고관절 굴곡 가동 범위가 ${dev}° 제한되어 하강 시 골반의 후방 경사(Butt Wink)를 유발하며, 이는 요추의 보상적 굴곡으로 이어져 허리 부하를 가중시킵니다.`,
-      rightHip: `고관절 굴곡 가동 범위가 ${dev}° 제한되어 하강 시 골반의 후방 경사(Butt Wink)를 유발하며, 이는 요추의 보상적 굴곡으로 이어져 허리 부하를 가중시킵니다.`,
-      leftAnkle: `거퇴관절의 배굴(Dorsiflexion)이 ${dev}° 제한되어 하강 시 무게 중심이 전방으로 이동합니다. 이는 무릎의 전방 쏠림과 척추의 과도한 전경을 유발하는 연쇄 반응의 시작점입니다.`,
-      rightAnkle: `거퇴관절의 배굴(Dorsiflexion)이 ${dev}° 제한되어 하강 시 무게 중심이 전방으로 이동합니다. 이는 무릎의 전방 쏠림과 척추의 과도한 전경을 유발하는 연쇄 반응의 시작점입니다.`,
-      leftShoulder: `견갑-상완 리듬의 불균형으로 어깨 정렬이 ${dev}° 이탈합니다. 이는 흉추 가동성 저하와 결합되어 상체 안정성을 무너뜨리고 목/어깨 통증을 유발할 수 있습니다.`,
-      rightShoulder: `견갑-상완 리듬의 불균형으로 어깨 정렬이 ${dev}° 이탈합니다. 이는 흉추 가동성 저하와 결합되어 상체 안정성을 무너뜨리고 목/어깨 통증을 유발할 수 있습니다.`,
+      spine: `허리를 잡아주는 힘이 약해서 ${dev}° 정도 휘어요.`,
+      leftKnee: `엉덩이 옆 근육이 약해서 허벅지가 안쪽으로 돌아가고, 무릎이 ${dev}° 정도 안으로 무너져요.`,
+      rightKnee: `엉덩이 옆 근육이 약해서 허벅지가 안쪽으로 돌아가고, 무릎이 ${dev}° 정도 안으로 무너져요.`,
+      leftHip: `엉덩이 관절이 ${dev}° 정도 잘 안 굽혀져요. 깊이 앉을 때 골반이 뒤로 말려요.`,
+      rightHip: `엉덩이 관절이 ${dev}° 정도 잘 안 굽혀져요. 깊이 앉을 때 골반이 뒤로 말려요.`,
+      leftAnkle: `발목이 앞으로 ${dev}° 정도 잘 안 굽혀져요. 그래서 몸이 앞으로 쏠려요.`,
+      rightAnkle: `발목이 앞으로 ${dev}° 정도 잘 안 굽혀져요. 그래서 몸이 앞으로 쏠려요.`,
+      leftShoulder: `어깨 균형이 ${dev}° 정도 어긋나 있어요. 등이 굳어 있을 때 자주 같이 나타나요.`,
+      rightShoulder: `어깨 균형이 ${dev}° 정도 어긋나 있어요. 등이 굳어 있을 때 자주 같이 나타나요.`,
+    };
+
+    // 반복 시 발생 가능한 통증
+    const plainPainRisk: Record<string, string> = {
+      spine: '계속되면 허리디스크 위험이 올라가요. 무거운 물건 들 때 허리에 무리.',
+      leftKnee: '심해지면 무릎 안쪽 연골/인대 손상. 달리기·점프 후 무릎 통증 빈도 ↑.',
+      rightKnee: '심해지면 무릎 안쪽 연골/인대 손상. 달리기·점프 후 무릎 통증 빈도 ↑.',
+      leftHip: '허리가 대신 일하면서 만성 요통으로 이어질 수 있어요.',
+      rightHip: '허리가 대신 일하면서 만성 요통으로 이어질 수 있어요.',
+      leftAnkle: '무릎과 허리가 대신 일하면서 무릎 시큰함 / 허리 통증으로 이어져요.',
+      rightAnkle: '무릎과 허리가 대신 일하면서 무릎 시큰함 / 허리 통증으로 이어져요.',
+      leftShoulder: '어깨 충돌 증후군이나 회전근개 부상 위험이 있어요.',
+      rightShoulder: '어깨 충돌 증후군이나 회전근개 부상 위험이 있어요.',
+    };
+
+    // 현재 일상에서 느낄 수 있는 불편
+    const plainDailyImpact: Record<string, string> = {
+      spine: '오래 앉아있을 때 허리 뻐근함, 아침에 일어날 때 허리 뻣뻣함.',
+      leftKnee: '계단 내려갈 때 무릎 시큰거림, 오래 서 있으면 무릎 욱신.',
+      rightKnee: '계단 내려갈 때 무릎 시큰거림, 오래 서 있으면 무릎 욱신.',
+      leftHip: '양반다리 어렵거나 오래 걸으면 골반/엉덩이 주변 뻐근함.',
+      rightHip: '양반다리 어렵거나 오래 걸으면 골반/엉덩이 주변 뻐근함.',
+      leftAnkle: '오래 서 있으면 종아리 뭉침, 계단 오를 때 발목 뻑뻑함.',
+      rightAnkle: '오래 서 있으면 종아리 뭉침, 계단 오를 때 발목 뻑뻑함.',
+      leftShoulder: '팔을 머리 위로 들 때 어깨 앞쪽 결림, 책상 작업 시 목/어깨 결림.',
+      rightShoulder: '팔을 머리 위로 들 때 어깨 앞쪽 결림, 책상 작업 시 목/어깨 결림.',
     };
 
     return {
       jointKey: c.jointKey,
       name: plainNames[c.jointKey] || c.jointName,
-      desc: plainDescs[c.jointKey] || `${dev}° 이탈 감지`,
+      desc: plainDescs[c.jointKey] || `${dev}° 정도 자세가 벗어나 있어요`,
       severity: c.severity,
       repCount,
       repTotal,
       deviation: dev,
       isRecurrent: repData?.isRecurrent || false,
+      painRisk: plainPainRisk[c.jointKey],
+      dailyImpact: plainDailyImpact[c.jointKey],
     };
   });
 
@@ -683,107 +711,107 @@ function buildMemberSummary(args: BuildSummaryArgs): MemberSummary {
     const maxDev = sig.dominantDeviation || 0;
     whyItems.push({
       icon: '⚠️',
-      text: `최대 ${maxDev}° 이탈이 반복되면 관절·디스크에 누적 스트레스가 쌓입니다. 지금은 통증이 없어도 임계점을 넘는 순간 부상으로 이어집니다`,
+      text: `최대 ${maxDev}° 정도 벗어나는 자세가 반복되면 관절과 디스크에 피로가 쌓여요. 지금은 안 아파도, 어느 순간 갑자기 다칠 수 있어요`,
     });
   }
   if (goal === 'weight') {
     whyItems.push({
       icon: '📉',
-      text: `안정성 ${sig.avgStability ?? '-'}점 수준에서는 운동 효율이 크게 떨어집니다. 같은 시간 운동해도 결과가 30%+ 덜 나옵니다`,
+      text: `안정성 ${sig.avgStability ?? '-'}점이면 운동 효율이 떨어져요. 같은 시간 운동해도 결과가 덜 나옵니다`,
     });
   } else if (goal === 'performance') {
     whyItems.push({
       icon: '🏋️',
-      text: `현재 패턴으로 중량을 올리면 ${sig.dominantJoint ? `${PLAIN_JOINT_NAME[sig.dominantJoint] || sig.dominantJoint} ` : ''}부위에 부하가 기하급수적으로 증가합니다`,
+      text: `이 자세 그대로 무게를 더 들면 ${sig.dominantJoint ? `${PLAIN_JOINT_NAME[sig.dominantJoint] || sig.dominantJoint}에 ` : ''}부담이 빠르게 커져요`,
     });
   } else {
     whyItems.push({
       icon: '📉',
-      text: '잘못된 패턴이 굳어지기 전 교정하면 훨씬 적은 노력으로 개선됩니다. 지금이 가장 빠른 타이밍입니다',
+      text: '잘못된 자세가 몸에 굳기 전에 잡으면 훨씬 적은 노력으로 좋아져요. 지금이 가장 빠른 시점이에요',
     });
   }
   if (sig.leftRightDiff !== undefined && sig.leftRightDiff >= 12) {
     whyItems.push({
       icon: '⚖️',
-      text: `좌우 ${sig.leftRightJoint || '관절'} 차이가 ${sig.leftRightDiff}°로 한쪽에 스트레스가 집중됩니다. 방치하면 한쪽 관절이 더 빨리 닳습니다`,
+      text: `왼쪽 오른쪽 ${sig.leftRightJoint || '관절'} 차이가 ${sig.leftRightDiff}°라 한쪽에 부담이 몰려요. 그대로 두면 한쪽 관절이 더 빨리 닳아요`,
     });
   } else if (hasAnkle || hasHip) {
     whyItems.push({
       icon: '🔗',
-      text: '발목→무릎→허리는 연결되어 있습니다. 한 부위의 제한이 전신 연쇄 보상을 만듭니다',
+      text: '발목, 무릎, 허리는 모두 연결돼 있어요. 한 곳이 안 좋으면 다른 곳들이 대신 일하면서 같이 무리가 가요',
     });
   }
 
-  // 4. 변화 예측 (이슈별 × 주차별 DB)
+  // 4. 변화 예측 (이슈별 × 주차별 DB) — 회원 친화 일상어
   const changeDB: Record<string, { week24: string; week68: string }> = {
     spine: {
       week24:
-        'McGill의 연구에 따르면 척추 중립 재교육 시작 후 2~3주 내 요추 압박력이 감소하기 시작합니다. 앉아서 오래 있을 때 허리가 덜 뻐근해지고, 아침에 일어날 때 뻣뻣함이 줄어드는 것을 먼저 느끼게 됩니다.',
+        '허리 자세 잡기를 시작하면 2~3주 안에 허리에 가는 부담이 줄어들어요. 오래 앉아있어도 덜 뻐근하고, 아침에 일어날 때 덜 뻣뻣한 게 먼저 느껴져요.',
       week68:
-        '복횡근·다열근의 공동 수축 패턴이 자동화되어 무거운 물건을 들 때 "허리가 먼저 조여지는" 능동적 보호 반응이 형성됩니다. McGill의 Big 3 훈련 8주 후 요통 재발률이 유의미하게 감소한다는 연구 결과와 일치하는 단계입니다.',
+        '6~8주 정도 꾸준히 하면 허리 코어가 자동으로 잡혀서, 무거운 물건 들 때 허리가 먼저 단단해지는 보호 반응이 생겨요. 허리 통증 재발률도 눈에 띄게 줄어요.',
     },
     leftKnee: {
       week24:
-        'Clamshell·Side Walk로 중둔근을 활성화하면 1~2주 내 계단 오를 때 무릎이 안으로 쏠리는 느낌이 줄어듭니다. Boyle의 Joint-by-Joint 이론대로 고관절 안정성이 확보되면 무릎은 즉각적으로 반응합니다.',
+        '엉덩이 옆 근육 강화 운동을 1~2주만 해도 계단 오를 때 무릎이 안으로 쏠리는 느낌이 줄어요. 엉덩이가 잡히기 시작하면 무릎이 즉시 좋아져요.',
       week68:
-        '대퇴골 내회전을 제어하는 외회전근군이 강화되어 런닝·점프 착지 시 무릎 정렬이 자동으로 유지됩니다. 슬개골-대퇴골 압박력 정상화로 계단 하강 시 통증이 감소하고, 스쿼트 깊이가 이전보다 자연스럽게 깊어집니다.',
+        '6~8주 후엔 달리기나 점프 착지 때 무릎 정렬이 자동으로 잡혀요. 계단 내려갈 때 무릎 시큰함이 줄고, 스쿼트 깊이도 자연스럽게 깊어져요.',
     },
     rightKnee: {
       week24:
-        'Clamshell·Side Walk로 중둔근을 활성화하면 1~2주 내 계단 오를 때 무릎이 안으로 쏠리는 느낌이 줄어듭니다. Boyle의 Joint-by-Joint 이론대로 고관절 안정성이 확보되면 무릎은 즉각적으로 반응합니다.',
+        '엉덩이 옆 근육 강화 운동을 1~2주만 해도 계단 오를 때 무릎이 안으로 쏠리는 느낌이 줄어요. 엉덩이가 잡히기 시작하면 무릎이 즉시 좋아져요.',
       week68:
-        '대퇴골 내회전을 제어하는 외회전근군이 강화되어 런닝·점프 착지 시 무릎 정렬이 자동으로 유지됩니다. 슬개골-대퇴골 압박력 정상화로 계단 하강 시 통증이 감소하고, 스쿼트 깊이가 이전보다 자연스럽게 깊어집니다.',
+        '6~8주 후엔 달리기나 점프 착지 때 무릎 정렬이 자동으로 잡혀요. 계단 내려갈 때 무릎 시큰함이 줄고, 스쿼트 깊이도 자연스럽게 깊어져요.',
     },
     leftHip: {
       week24:
-        '90/90 스트레칭과 CARs로 고관절 캡슐 가동성이 회복되기 시작하면 앉았다 일어날 때 "뚝"하는 느낌과 뻣뻣함이 감소합니다. Sahrmann의 연구에 따르면 고관절 가동성 회복은 요추 보상 움직임을 직접적으로 줄입니다.',
+        '엉덩이 관절 스트레칭을 시작하면 2~3주 안에 앉았다 일어날 때 "뚝" 소리나 뻣뻣함이 줄어요. 골반이 부드러워지면 허리도 같이 편해져요.',
       week68:
-        '고관절 굴곡 패턴이 정상화되면서 스쿼트·데드리프트 시 허리가 개입하는 보상 패턴이 사라집니다. 단측 동작(런지·스텝업)에서 좌우 균형감이 명확히 달라지고, 장시간 보행 후 고관절 주변 피로감이 줄어듭니다.',
+        '6~8주 후엔 스쿼트나 데드리프트할 때 허리가 대신 일하지 않아요. 양반다리도 편해지고, 오래 걸어도 골반 주변이 덜 피로해요.',
     },
     rightHip: {
       week24:
-        '90/90 스트레칭과 CARs로 고관절 캡슐 가동성이 회복되기 시작하면 앉았다 일어날 때 "뚝"하는 느낌과 뻣뻣함이 감소합니다. Sahrmann의 연구에 따르면 고관절 가동성 회복은 요추 보상 움직임을 직접적으로 줄입니다.',
+        '엉덩이 관절 스트레칭을 시작하면 2~3주 안에 앉았다 일어날 때 "뚝" 소리나 뻣뻣함이 줄어요. 골반이 부드러워지면 허리도 같이 편해져요.',
       week68:
-        '고관절 굴곡 패턴이 정상화되면서 스쿼트·데드리프트 시 허리가 개입하는 보상 패턴이 사라집니다. 단측 동작(런지·스텝업)에서 좌우 균형감이 명확히 달라지고, 장시간 보행 후 고관절 주변 피로감이 줄어듭니다.',
+        '6~8주 후엔 스쿼트나 데드리프트할 때 허리가 대신 일하지 않아요. 양반다리도 편해지고, 오래 걸어도 골반 주변이 덜 피로해요.',
     },
     leftAnkle: {
       week24:
-        'Ankle CARs와 벽 드릴 2~3주 후 스쿼트 하강 시 발뒤꿈치가 들리지 않고 바닥에 붙어있는 느낌을 체감합니다. 발목 배굴 범위가 늘어나면 상체가 자연스럽게 직립하게 되어 허리 부하가 즉시 감소합니다.',
+        '발목 스트레칭과 벽 운동을 2~3주 하면 스쿼트 내려갈 때 발뒤꿈치가 안 들리고 잘 붙어있어요. 발목이 부드러워지면 허리 부담도 즉시 줄어요.',
       week68:
-        '비복근·가자미근의 점탄성이 회복되어 달리기·점프 후 착지 충격이 발목에서 효율적으로 흡수됩니다. Cook의 FMS에서 발목 가동성 정상화는 전신 운동 사슬의 가장 근본적인 변화로 제시되며, 스쿼트 깊이와 안정성이 함께 향상됩니다.',
+        '6~8주 후엔 종아리도 부드러워져서 달리기·점프 후 착지 충격을 발목이 잘 흡수해요. 스쿼트 깊이와 안정감이 같이 좋아져요.',
     },
     rightAnkle: {
       week24:
-        'Ankle CARs와 벽 드릴 2~3주 후 스쿼트 하강 시 발뒤꿈치가 들리지 않고 바닥에 붙어있는 느낌을 체감합니다. 발목 배굴 범위가 늘어나면 상체가 자연스럽게 직립하게 되어 허리 부하가 즉시 감소합니다.',
+        '발목 스트레칭과 벽 운동을 2~3주 하면 스쿼트 내려갈 때 발뒤꿈치가 안 들리고 잘 붙어있어요. 발목이 부드러워지면 허리 부담도 즉시 줄어요.',
       week68:
-        '비복근·가자미근의 점탄성이 회복되어 달리기·점프 후 착지 충격이 발목에서 효율적으로 흡수됩니다. Cook의 FMS에서 발목 가동성 정상화는 전신 운동 사슬의 가장 근본적인 변화로 제시되며, 스쿼트 깊이와 안정성이 함께 향상됩니다.',
+        '6~8주 후엔 종아리도 부드러워져서 달리기·점프 후 착지 충격을 발목이 잘 흡수해요. 스쿼트 깊이와 안정감이 같이 좋아져요.',
     },
     leftShoulder: {
       week24:
-        '소흉근 이완과 Face Pull 2~3주 후 팔을 들어올릴 때 어깨 앞쪽의 충돌감이 줄어듭니다. 견갑골 후인이 회복되면 앉아서 작업할 때 목·어깨 주변 만성 긴장이 감소하기 시작합니다.',
+        '가슴 앞쪽 스트레칭과 등 운동을 2~3주 하면 팔을 들어올릴 때 어깨 앞 결림이 줄어요. 책상에서 일할 때 목·어깨 결림도 같이 줄어요.',
       week68:
-        '견갑-상완 리듬이 정상화되어 오버헤드 동작에서 회전근개 부하가 줄어듭니다. Boyle의 연구에 따르면 흉추 가동성과 연계된 어깨 교정은 6~8주 후 벤치프레스·오버헤드 프레스 시 어깨 불편감을 유의미하게 감소시킵니다.',
+        '6~8주 후엔 어깨 움직임이 자연스러워져서 벤치프레스나 오버헤드 운동할 때 어깨 불편함이 눈에 띄게 줄어요.',
     },
     rightShoulder: {
       week24:
-        '소흉근 이완과 Face Pull 2~3주 후 팔을 들어올릴 때 어깨 앞쪽의 충돌감이 줄어듭니다. 견갑골 후인이 회복되면 앉아서 작업할 때 목·어깨 주변 만성 긴장이 감소하기 시작합니다.',
+        '가슴 앞쪽 스트레칭과 등 운동을 2~3주 하면 팔을 들어올릴 때 어깨 앞 결림이 줄어요. 책상에서 일할 때 목·어깨 결림도 같이 줄어요.',
       week68:
-        '견갑-상완 리듬이 정상화되어 오버헤드 동작에서 회전근개 부하가 줄어듭니다. Boyle의 연구에 따르면 흉추 가동성과 연계된 어깨 교정은 6~8주 후 벤치프레스·오버헤드 프레스 시 어깨 불편감을 유의미하게 감소시킵니다.',
+        '6~8주 후엔 어깨 움직임이 자연스러워져서 벤치프레스나 오버헤드 운동할 때 어깨 불편함이 눈에 띄게 줄어요.',
     },
     hipShift: {
       week24:
-        'Suitcase Carry와 Side Plank로 측면 코어(요방형근·중둔근)가 활성화되면 2~3주 내 한 발로 서거나 계단을 오를 때 골반이 덜 기우는 것을 느낍니다.',
+        '옆구리·엉덩이 강화 운동 2~3주만 해도 한 발로 서거나 계단 오를 때 골반이 덜 기울어져요.',
       week68:
-        '동적 골반 안정성이 확보되어 런닝·점프 착지 시 좌우 충격 분산이 대칭적으로 이루어집니다. 한쪽 무릎·고관절에 집중되던 누적 스트레스가 양측으로 균등하게 분산됩니다.',
+        '6~8주 후엔 달리기·점프 때 좌우 균형이 잡혀서 한쪽에만 가던 부담이 양쪽에 고르게 나뉘어요.',
     },
   };
 
   const changes = { week24: '', week68: '' };
   if (!criticals.length) {
     changes.week24 =
-      '현재 움직임 패턴은 양호합니다. NSCA 기준으로 이 단계에서의 훈련은 신경근 효율성을 최적화하는 데 집중됩니다. 같은 무게로 더 깔끔하게, 더 적은 에너지로 움직이는 질적 향상이 먼저 나타납니다.';
+      '지금 자세 좋아요. 이 단계에선 같은 무게로 더 깔끔하게, 더 가볍게 움직이는 질적 향상이 먼저 와요.';
     changes.week68 =
-      '구조적 적응기에 접어들어 근력·지구력의 실질적 향상이 측정 가능한 수준으로 나타납니다. 부상 없이 점진적 과부하(Progressive Overload)를 적용할 수 있는 최적의 몸 상태가 형성됩니다.';
+      '6~8주 후엔 근력과 체력이 눈에 띄게 좋아져요. 다칠 걱정 없이 무게를 점점 늘려도 되는 최적의 몸 상태예요.';
   } else {
     const topC = criticals[0];
     const topDB = changeDB[topC.jointKey];
@@ -791,8 +819,8 @@ function buildMemberSummary(args: BuildSummaryArgs): MemberSummary {
       changes.week24 = topDB.week24;
       changes.week68 = topDB.week68;
     } else {
-      changes.week24 = `${topC.jointName} 교정이 진행되면서 2~3주 내 해당 부위의 움직임이 부드러워지고 보상 패턴이 줄어드는 것을 체감합니다.`;
-      changes.week68 = `신경근 재교육이 완성되는 6~8주 후에는 교정된 패턴이 자동화되어 의식하지 않아도 올바른 움직임이 유지됩니다.`;
+      changes.week24 = `자세 잡기를 시작하면 2~3주 안에 해당 부위가 부드러워지고 잘못된 움직임이 줄어드는 게 느껴져요.`;
+      changes.week68 = `6~8주 후엔 좋은 움직임이 몸에 익어서 의식하지 않아도 자연스럽게 유지돼요.`;
     }
   }
 
@@ -801,15 +829,15 @@ function buildMemberSummary(args: BuildSummaryArgs): MemberSummary {
   const totalSessions = ptPlan?.totalSessions || 12;
   let ptReason: string;
   if (!criticals.length) {
-    ptReason = '현재 패턴을 더욱 고도화하고 부상 예방 기반을 만드는 데 최적입니다';
+    ptReason = '지금 자세를 더 다듬고, 다치지 않는 몸을 만들기에 딱 좋은 시점이에요';
   } else {
     const recurrentCount = Object.values(rec).filter((d) => d.isRecurrent).length;
     if (recurrentCount >= 2) {
-      ptReason = `반복 패턴이 ${recurrentCount}개 확인되었습니다. 혼자서는 교정이 어렵고, 전문가 피드백이 있어야 빠르게 개선됩니다`;
+      ptReason = `잘못된 자세가 ${recurrentCount}곳에서 반복돼요. 혼자 고치기 어려워서, 트레이너가 옆에서 봐줘야 빨리 좋아져요`;
     } else if (criticals.length >= 2) {
-      ptReason = '두 곳 이상에서 문제가 확인되었습니다. 체계적인 단계별 접근이 필요합니다';
+      ptReason = '두 군데 이상에서 문제가 보여요. 차근차근 단계별로 잡아가야 해요';
     } else {
-      ptReason = '발견된 패턴을 교정하고 올바른 움직임을 완전히 자동화하는 데 필요한 기간입니다';
+      ptReason = '찾아낸 잘못된 자세를 고치고, 좋은 움직임이 몸에 완전히 익을 때까지 필요한 기간이에요';
     }
   }
 

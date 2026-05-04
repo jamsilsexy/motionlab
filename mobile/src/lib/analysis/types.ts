@@ -78,6 +78,10 @@ export interface SummaryProblem {
   repCount?: number | null;
   repTotal?: number | null;
   isRecurrent?: boolean;
+  /** 반복 시 발생 가능한 통증 — 예: "계단 내려갈 때 무릎 안쪽이 시큰거릴 수 있어요" */
+  painRisk?: string;
+  /** 현재 일상에서 불편함을 느낄 수 있는 상황 — 예: "오래 앉아 있으면 허리가 뻐근해요" */
+  dailyImpact?: string;
 }
 
 export interface SummaryWhyItem {
