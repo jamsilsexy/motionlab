@@ -91,8 +91,8 @@ export default function StaticPoseScreen() {
       router.replace(`/analysis/report?memberId=${memberId ?? ''}`);
       return;
     }
-    // 다음은 OHS 정면(영상). camera 화면으로.
-    router.replace(`/analysis/camera?memberId=${memberId ?? ''}`);
+    // 다음은 OHS 정면(영상). default는 영상 업로드 분석. 라이브는 video-analyze 안에서 옵션.
+    router.replace(`/analysis/video-analyze?memberId=${memberId ?? ''}`);
   };
 
   const skipStep = () => {

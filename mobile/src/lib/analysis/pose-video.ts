@@ -14,10 +14,11 @@ import { SquatTracker } from './tracker';
 import type { Landmark } from './types';
 
 const MODEL_FILE = 'pose_landmarker_lite.task';
-// frame 추출 간격. 0.35s ≈ 2.85fps.
-//   OHS 1 rep ≈ 3-4초이므로 3fps도 충분 (descend/bottom/ascend 각 1-2 frame씩 잡힘).
-//   0.2s(5fps) → 0.35s 변경: frame 수 43% 감소 = 처리 시간 거의 절반.
-const FRAME_INTERVAL_MS = 350;
+// frame 추출 간격. 0.4s = 2.5fps.
+//   OHS 1 rep ≈ 3-4초이므로 2.5fps여도 rep당 8-10 frame.
+//   SquatTracker.KNEE_DOWN/UP/RECOVERY 임계값 완화와 함께 적용 시 rep 인식 충분.
+//   30s 영상 = 75 frame (vs 0.2s 150 frame) → 처리 시간 약 50% 단축.
+const FRAME_INTERVAL_MS = 400;
 // thumbnail 압축 품질 — Pose 추론은 0.4 정도면 충분 (JPEG artifact가 33 landmark 정확도에 미미).
 const THUMB_QUALITY = 0.4;
 const MIN_VIDEO_DURATION_MS = 3000;
@@ -136,8 +137,9 @@ export async function analyzeVideoFile(opts: {
 
     const angles = AnalysisEngine.calcAngles(lmArray);
 
-    // ★ frame은 local에만 누적 (매 frame setRealtime + spread 시 OOM 위험)
-    const frame: FrameRecord = { timeMs, angles, landmarks: lmArray };
+    // ★ frame은 local에만 누적. buildSummary는 angles만 사용 — landmarks는 SquatTracker
+    //    내부 best frame 캡처에만 쓰이므로 frameHistory에는 미저장 (메모리 ~2/3 절약).
+    const frame: FrameRecord = { timeMs, angles };
     collectedFrames.push(frame);
 
     // SquatTracker.update — rep 카운트는 매 frame 필요 (내부적으로 SH.setSquatTracker 자동 호출)

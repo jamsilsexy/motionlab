@@ -100,14 +100,14 @@ function update(landmarks: Landmark[], angles: JointAngles, timeMs: number): voi
       if (smoothHipY > trackerState.currentRep.maxHipY) {
         trackerState.currentRep.maxHipY = smoothHipY;
       }
-      if (kneeAngle > trackerState.currentRep.minKneeAngle + 12) {
+      if (kneeAngle > trackerState.currentRep.minKneeAngle + cfg.KNEE_RECOVERY_DELTA) {
         trackerState.phase = 'ascending';
         trackerState.currentRep.bottomMs = timeMs;
       }
       break;
     case 'ascending':
       if (!trackerState.currentRep) break;
-      if (kneeAngle > 155) {
+      if (kneeAngle > cfg.KNEE_UP_ANGLE) {
         trackerState.currentRep.endMs = timeMs;
         if (
           trackerState.currentRep.endMs - trackerState.currentRep.startMs >=

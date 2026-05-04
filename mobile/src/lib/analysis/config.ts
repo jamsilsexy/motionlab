@@ -87,8 +87,16 @@ export const AppConfig = {
   },
 
   SQUAT: {
-    KNEE_DOWN_ANGLE: 110,
-    MIN_REP_DURATION_MS: 1000,
+    // descending 진입 임계 — 무릎이 이 각도보다 작아지면 1 rep 시작.
+    //   110°(원래) = 깊은 스쿼트 필요. 가동성 제한 회원이나 영상 sparse frame에서 놓침.
+    //   125°로 완화: AAOS hip flexion 정상 0-120°와 align, 살짝 굽혀도 인식.
+    KNEE_DOWN_ANGLE: 125,
+    // ascending → idle 임계 (완전히 펴진 상태). 155° 너무 엄격, 145°로 완화.
+    KNEE_UP_ANGLE: 145,
+    // descending → ascending 진입: minKneeAngle에서 N° 회복 시. 12° → 8° 완화.
+    KNEE_RECOVERY_DELTA: 8,
+    // 1 rep 최소 지속시간. 영상 sparse frame에서 놓치지 않게 1000ms → 700ms.
+    MIN_REP_DURATION_MS: 700,
     MIN_REPS_FOR_ANALYSIS: 3,
     TARGET_REPS: 5,
   },
