@@ -252,7 +252,7 @@ export default function CameraAnalysisScreen() {
           <Text className="ml-4 flex-1 text-sm font-semibold text-white">
             {stepNum}/{queueLen} {movement?.icon} {movement?.label}
           </Text>
-          {phase === 'idle' && (
+          {phase === 'idle' && stepNum === 2 && (
             <Pressable onPress={goVideoAnalyze}>
               <Text className="text-xs font-semibold text-indigo-300">🎥 영상으로</Text>
             </Pressable>
