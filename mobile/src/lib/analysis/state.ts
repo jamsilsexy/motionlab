@@ -53,6 +53,8 @@ export interface Capture {
   repeatCount?: number;
   repeatRate?: number;
   isRepresentative?: boolean;
+  /** 이슈 시점 33개 MediaPipe landmark — 캡쳐 사진 위 skeleton 오버레이용 */
+  landmarks?: Landmark[];
 }
 
 export interface SquatRep {

@@ -1,8 +1,9 @@
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { SkeletonOverlay } from '@/components/skeleton-overlay';
 
 import {
   AnalysisEngine,
@@ -575,15 +576,23 @@ function IssueRow({ index, capture }: { index: number; capture: Capture }) {
       </View>
       {capture.frameDataUri && (
         <View className="ml-7 mt-1.5 overflow-hidden rounded-md border border-gray-200">
-          <Image
-            source={{ uri: capture.frameDataUri }}
-            style={{ width: '100%', aspectRatio: 9 / 16 }}
-            contentFit="cover"
-          />
-          <Text className="bg-black/60 px-2 py-0.5 text-[10px] text-white">
-            🎯 이슈 발생 시점 — {Math.round(capture.timeMs / 100) / 10}s
-            {capture.repIndex ? ` (${capture.repIndex}번째 반복)` : ''}
-          </Text>
+          {capture.landmarks ? (
+            <SkeletonOverlay
+              imageUri={capture.frameDataUri}
+              landmarks={capture.landmarks}
+              highlightJointKey={capture.jointKey}
+              severity={capture.severity}
+            />
+          ) : null}
+          <View className="bg-black/60 px-2 py-1">
+            <Text className="text-[10px] font-semibold text-white">
+              🎯 이슈 발생 시점 — {Math.round(capture.timeMs / 100) / 10}s
+              {capture.repIndex ? ` (${capture.repIndex}번째 반복)` : ''}
+            </Text>
+            <Text className="mt-0.5 text-[10px]" style={{ color: '#fca5a5' }}>
+              빨간 점/선 = {capture.jointName} 부위가 정상 범위에서 벗어남
+            </Text>
+          </View>
         </View>
       )}
     </View>

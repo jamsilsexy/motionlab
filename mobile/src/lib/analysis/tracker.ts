@@ -274,6 +274,7 @@ function buildCapturesFromBestFrames(): Capture[] {
       timeMs: bf.timeMs,
       repIndex: bf.repIndex,
       frameDataUri: bf.imageUri,
+      landmarks: bf.landmarks,
     });
   });
 
