@@ -12,6 +12,8 @@ import {
 } from './state';
 import { SquatTracker } from './tracker';
 import type {
+  ComparisonChange,
+  ComparisonResult,
   ExerciseRef,
   JointAngles,
   JointRange,
@@ -1658,6 +1660,80 @@ const CURRICULUM_DB: Record<string, CurriculumEntry> = {
 };
 
 /* ───────────────────────────────────────────────────────────
+ * 변화 체크 — 이전 분석과 현재 분석 비교 (form_ai_v17.html:9292 port).
+ *
+ * - 두 VideoSignature 비교 (avgStability, dominantJoint·Deviation, leftRightDiff)
+ * - candidates에서 priority 정렬 후 최대 2개 changes만 반환 (UI 과부하 방지)
+ * - '측정 사실'만 표시 — 원인 단정 금지 (예: "안정성 +8점", "왼쪽 무릎 −12°")
+ * ─────────────────────────────────────────────────────────── */
+function compareWithPreviousAnalysis(
+  current: import('./state').VideoSignature | null,
+  previous: import('./state').VideoSignature | null,
+  previousAt?: string | null,
+): ComparisonResult | null {
+  if (!current || !previous) return null;
+
+  const candidates: ComparisonChange[] = [];
+
+  // ① 안정성 변화 (avgStability 5점 이상 차이)
+  const stabDiff = current.avgStability - previous.avgStability;
+  if (Math.abs(stabDiff) >= 5) {
+    candidates.push({
+      type: stabDiff > 0 ? 'improve' : 'worsen',
+      label: stabDiff > 0 ? '개선' : '악화',
+      metric: '움직임 안정성',
+      text: `${stabDiff > 0 ? '+' : ''}${Math.round(stabDiff)}점 변화`,
+      priority: 1,
+    });
+  }
+
+  // ② 주요 이탈 각도 변화 (5° 이상). dominantJoint가 같으면 deviation 비교, 다르면 변화로 표기
+  if (current.dominantJoint && previous.dominantJoint) {
+    if (current.dominantJoint === previous.dominantJoint) {
+      const devDiff = current.dominantDeviation - previous.dominantDeviation;
+      if (Math.abs(devDiff) >= 5) {
+        candidates.push({
+          type: devDiff < 0 ? 'improve' : 'worsen',
+          label: devDiff < 0 ? '개선' : '악화',
+          metric: `${current.dominantJoint} 이탈 각도`,
+          text: `${devDiff < 0 ? '−' : '+'}${Math.abs(Math.round(devDiff))}° 변화`,
+          priority: 2,
+        });
+      }
+    } else {
+      candidates.push({
+        type: 'change',
+        label: '변화',
+        metric: '주요 관찰 부위',
+        text: `${previous.dominantJoint} → ${current.dominantJoint}`,
+        priority: 3,
+      });
+    }
+  }
+
+  // ③ 좌우 비대칭 변화 (5° 이상)
+  const asymmDiff = current.leftRightDiff - previous.leftRightDiff;
+  if (Math.abs(asymmDiff) >= 5) {
+    candidates.push({
+      type: asymmDiff < 0 ? 'improve' : 'worsen',
+      label: asymmDiff < 0 ? '개선' : '악화',
+      metric: '좌우 비대칭',
+      text: `${asymmDiff < 0 ? '−' : '+'}${Math.abs(Math.round(asymmDiff))}° 변화`,
+      priority: 2,
+    });
+  }
+
+  const changes = candidates.sort((a, b) => a.priority - b.priority).slice(0, 2);
+  if (changes.length === 0) return null;
+
+  return {
+    comparedAt: new Date().toISOString(),
+    previousAt: previousAt ?? null,
+    changes,
+  };
+}
+
+/* ───────────────────────────────────────────────────────────
  * 배럴 export
  * ─────────────────────────────────────────────────────────── */
 export const AnalysisEngine = {
@@ -1674,6 +1750,7 @@ export const AnalysisEngine = {
   buildMemberSummary,
   buildSalesScriptV5,
   calcPtPlan,
+  compareWithPreviousAnalysis,
 };
 
 export {
@@ -1690,4 +1767,5 @@ export {
   buildMemberSummary,
   buildSalesScriptV5,
   calcPtPlan,
+  compareWithPreviousAnalysis,
 };

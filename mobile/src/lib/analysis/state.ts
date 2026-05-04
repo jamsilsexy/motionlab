@@ -37,6 +37,10 @@ export interface Member {
   createdAt?: string;
   lastAnalysis?: string | null;
   consentedAt?: string | null;
+  /** 변화 체크용 — 마지막 분석의 signature를 영구 저장 (다음 분석 시 비교 기준) */
+  lastSignature?: VideoSignature | null;
+  /** lastSignature가 기록된 시각 ISO */
+  lastAnalyzedAt?: string | null;
 }
 
 export interface Capture {
@@ -129,6 +133,8 @@ export interface ResultState {
   ptPlan: PtPlan | null;
   nasmPatterns: NasmPattern[] | null;
   nasmChain: CompensationChain | null;
+  /** 이전 분석 대비 변화 — compareWithPreviousAnalysis 결과 */
+  comparison: import('./types').ComparisonResult | null;
 }
 
 export interface SessionState {
@@ -274,6 +280,7 @@ const emptyResult = (prevSig: VideoSignature | null = null): ResultState => ({
   ptPlan: null,
   nasmPatterns: null,
   nasmChain: null,
+  comparison: null,
 });
 
 export const useAnalysisStore = create<AnalysisStore>((set, get) => ({
@@ -369,7 +376,8 @@ export const useAnalysisStore = create<AnalysisStore>((set, get) => ({
         supplementSkipped: false,
         selectedMvId: queue[0] ?? '',
       },
-      result: emptyResult(),
+      // 변화 체크용: 회원의 마지막 분석 signature를 prev로 보존
+      result: emptyResult(s.session.memberData?.lastSignature ?? null),
     })),
 
   appendToQueue: (mvId) =>

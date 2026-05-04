@@ -217,3 +217,26 @@ export interface ExerciseRef {
   repsOverride?: string;
   note?: string; // phase-specific 메모 ("약한 쪽 먼저" 등)
 }
+
+/* ─────────────────────────────────────────────────────────
+   변화 체크 (compareWithPreviousAnalysis 결과)
+   form_ai_v17.html:9292 port — 이전 분석 대비 무엇이 변했는지
+   ──────────────────────────────────────────────────────── */
+
+export type ComparisonChangeType = 'improve' | 'worsen' | 'change';
+
+export interface ComparisonChange {
+  type: ComparisonChangeType;
+  label: '개선' | '악화' | '변화';
+  metric: string; // 예: '움직임 안정성', '왼쪽 무릎 이탈 각도'
+  text: string; // 예: '+8점 변화', '−12° 변화'
+  priority: number; // 1=가장 중요
+}
+
+export interface ComparisonResult {
+  /** 측정 정보용 — 비교 시각 */
+  comparedAt: string;
+  /** 이전 분석 시각 (member.lastAnalyzedAt) */
+  previousAt?: string | null;
+  changes: ComparisonChange[];
+}

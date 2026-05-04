@@ -1,7 +1,9 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { upsertMember as persistMember } from '@/lib/members';
 
 import { SkeletonOverlay } from '@/components/skeleton-overlay';
 
@@ -11,6 +13,7 @@ import {
   NASMEngine,
   type Capture,
   type CompensationChain,
+  type ComparisonResult,
   type ExerciseEntry,
   type ExerciseRef,
   type JointAngles,
@@ -96,6 +99,35 @@ export default function ReportScreen() {
     [aggregate.criticals],
   );
 
+  // 변화 체크 — 회원의 마지막 분석 signature와 현재 비교
+  const previousSignature = member?.lastSignature ?? null;
+  const previousAt = member?.lastAnalyzedAt ?? null;
+  const comparison = useMemo<ComparisonResult | null>(
+    () =>
+      AnalysisEngine.compareWithPreviousAnalysis(
+        aggregate.signature,
+        previousSignature,
+        previousAt,
+      ),
+    [aggregate.signature, previousSignature, previousAt],
+  );
+
+  // 분석 종료 후 — 현재 signature를 회원 영구 저장 (다음 분석 시 prev로 사용)
+  // 가드: signature 존재 + member id 존재. 1회만 발사 (member.id + signature 변경 시).
+  useEffect(() => {
+    if (!member?.id || !aggregate.signature) return;
+    const updated = {
+      ...member,
+      lastSignature: aggregate.signature,
+      lastAnalyzedAt: new Date().toISOString(),
+      lastAnalysis: new Date().toISOString(),
+    };
+    persistMember(updated).catch((err) => {
+      console.warn('[report] failed to persist lastSignature:', err);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [member?.id, aggregate.signature]);
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <View className="flex-row items-center border-b border-gray-200 px-4 py-3">
@@ -115,6 +147,7 @@ export default function ReportScreen() {
         </Text>
 
         <ScoreCard score={aggregate.score} />
+        {comparison && <ChangeCheckSection comparison={comparison} />}
         {session.staticPoseResult && <StaticPoseSection result={session.staticPoseResult} />}
 
         <ModeToggle mode={mode} onChange={setMode} />
@@ -241,6 +274,65 @@ function ScoreCard({ score }: { score: number }) {
       <Text className="mt-1 text-sm font-semibold" style={{ color }}>
         {label}
       </Text>
+    </View>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   B-12 변화 체크 — 이전 분석 대비 개선/악화 (PT 효과 입증)
+   ───────────────────────────────────────────────────────────── */
+function ChangeCheckSection({ comparison }: { comparison: ComparisonResult }) {
+  const prevDate = comparison.previousAt
+    ? new Date(comparison.previousAt).toLocaleDateString('ko-KR')
+    : null;
+
+  return (
+    <View className="mt-6">
+      <Text className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+        📈 변화 체크 {prevDate ? `(${prevDate} 분석 대비)` : ''}
+      </Text>
+      <View className="mt-2 rounded-lg border border-gray-200 bg-white p-3">
+        {comparison.changes.map((c, i) => {
+          const palette =
+            c.type === 'improve'
+              ? { bg: '#dcfce7', fg: '#166534', icon: '↑' }
+              : c.type === 'worsen'
+                ? { bg: '#fee2e2', fg: '#991b1b', icon: '↓' }
+                : { bg: '#e0e7ff', fg: '#3730a3', icon: '↔' };
+          return (
+            <View
+              key={i}
+              className={`flex-row items-center ${i > 0 ? 'mt-2 border-t border-gray-100 pt-2' : ''}`}
+            >
+              <View
+                className="mr-3 h-8 w-8 items-center justify-center rounded-full"
+                style={{ backgroundColor: palette.bg }}
+              >
+                <Text className="text-base font-bold" style={{ color: palette.fg }}>
+                  {palette.icon}
+                </Text>
+              </View>
+              <View className="flex-1">
+                <View className="flex-row items-center">
+                  <Text className="text-xs font-semibold text-gray-900">{c.metric}</Text>
+                  <View
+                    className="ml-2 rounded px-1.5 py-0.5"
+                    style={{ backgroundColor: palette.bg }}
+                  >
+                    <Text className="text-[10px] font-bold" style={{ color: palette.fg }}>
+                      {c.label}
+                    </Text>
+                  </View>
+                </View>
+                <Text className="mt-0.5 text-[11px] text-gray-700">{c.text}</Text>
+              </View>
+            </View>
+          );
+        })}
+        <Text className="mt-2 text-[10px] text-gray-400">
+          측정 사실만 표시 — 원인은 트레이너 상담을 통해 확인하세요.
+        </Text>
+      </View>
     </View>
   );
 }
