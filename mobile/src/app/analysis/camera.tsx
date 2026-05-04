@@ -271,6 +271,10 @@ export default function CameraAnalysisScreen() {
               {'\n'}
               <Text className="text-[11px] text-indigo-300">권장: {movement.guide.reps}</Text>
             </Text>
+            <Text className="mt-2 text-[10px] leading-4 text-amber-200">
+              ⚠ 라이브 분석은 각도·반복 수만 추적합니다. 리포트의 이슈 시점 사진은 영상 업로드
+              분석에서만 제공돼요. 사진 첨부가 필요하면 영상으로 촬영 후 업로드를 권장합니다.
+            </Text>
           </View>
         )}
       </SafeAreaView>

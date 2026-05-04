@@ -113,13 +113,18 @@ function calcSideAngles(lms: Landmark[]): JointAngles {
   const hipRaw = avg2(a(L.L_SHOULDER, L.L_HIP, L.L_KNEE), a(L.R_SHOULDER, L.R_HIP, L.R_KNEE));
   const ankleRaw = avg2(a(L.L_KNEE, L.L_ANKLE, L.L_HEEL), a(L.R_KNEE, L.R_ANKLE, L.R_HEEL));
 
+  // 측면 OHS는 시상면(sagittal plane) 분석 — 좌우 구분이 의미 없음.
+  // 이전 버전은 leftX/rightX 모두 동일한 평균값을 주입해 buildCapturesFromBestFrames가
+  //   양쪽 모두 critical로 잡고 리포트에 좌우 중복 표시되는 버그가 있었음.
+  // → leftX 키에만 채우고 rightX는 null로 두어 중복 제거.
+  //   (라벨 '왼쪽 무릎'은 측면일 때 시상면 무릎을 가리키는 통합 표현)
   const angles: JointAngles = {
     leftKnee: kneeRaw !== null ? Math.round(kneeRaw) : null,
-    rightKnee: kneeRaw !== null ? Math.round(kneeRaw) : null,
+    rightKnee: null,
     leftHip: hipRaw !== null ? Math.round(hipRaw) : null,
-    rightHip: hipRaw !== null ? Math.round(hipRaw) : null,
+    rightHip: null,
     leftAnkle: ankleRaw !== null ? Math.round(ankleRaw) : null,
-    rightAnkle: ankleRaw !== null ? Math.round(ankleRaw) : null,
+    rightAnkle: null,
   };
 
   const ls = lms[L.L_SHOULDER];
