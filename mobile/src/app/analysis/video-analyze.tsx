@@ -303,11 +303,8 @@ export default function VideoAnalyzeScreen() {
         )}
 
         {/* 라이브 카메라로 전환 옵션 — secondary action.
-            우연한 클릭 방지:
-              1) 첫 OHS step (stepNum === 2 — static_pose 다음 ohs_front) 에서만 노출
-                 → ohs_side 등 후속 step에서는 옵션 자체가 사라져 우발 클릭 불가
-              2) outline 버튼 + 명확한 hit-area
-              3) confirmation Alert (goLiveCamera) */}
+            첫 OHS step에서만 노출, outline 버튼, confirmation Alert.
+            한계 안내를 버튼 자체에 함께 표기 (사용자가 누르기 전에 인지) */}
         {!running && !videoUri && stepNum === 2 && (
           <View className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
             <Text className="text-[11px] font-semibold text-gray-500">또는</Text>
@@ -317,6 +314,9 @@ export default function VideoAnalyzeScreen() {
             >
               <Text className="text-xs font-semibold text-gray-700">
                 📷 라이브 카메라로 전환
+              </Text>
+              <Text className="mt-0.5 text-[10px] leading-3 text-amber-700">
+                ⚠ 실시간 skeleton 미표시 · 이슈 시점 사진 미캡쳐
               </Text>
             </Pressable>
             <Text className="mt-1.5 text-[11px] text-gray-500">

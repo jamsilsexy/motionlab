@@ -120,7 +120,7 @@ export default function ReportScreen() {
         <ModeToggle mode={mode} onChange={setMode} />
 
         {mode === 'member' ? (
-          <MemberView summary={memberSummary} plan={ptPlan} />
+          <MemberView summary={memberSummary} />
         ) : (
           <TrainerView
             patterns={nasmPatterns}
@@ -181,16 +181,18 @@ function ModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
   );
 }
 
-function MemberView({ summary, plan }: { summary: MemberSummary; plan: PtPlan }) {
+function MemberView({ summary }: { summary: MemberSummary }) {
   return (
     <View>
       <View className="mt-4 rounded-lg bg-indigo-50 p-3">
         <Text className="text-[11px] font-semibold text-indigo-700">
           📱 이 화면은 회원에게 직접 보여주기 위한 요약입니다 (생활 언어).
         </Text>
+        <Text className="mt-1 text-[10px] leading-4 text-indigo-700/80">
+          어디에 어떤 문제가 있고, 그대로 두면 어떤 일이 생기는지 — 정확한 운동 처방은 트레이너 탭에 있습니다.
+        </Text>
       </View>
       <Tab1MemberSummary summary={summary} />
-      <PtPlanCard plan={plan} mode="member" />
     </View>
   );
 }
@@ -293,19 +295,64 @@ function StaticPoseSection({ result }: { result: StaticPoseResult }) {
 }
 
 function Tab1MemberSummary({ summary }: { summary: MemberSummary }) {
+  // 이슈 chip 한눈 보기용 (모라핏 스타일) — 부위명만 추출
+  const issueChips = summary.problems.map((p) => ({
+    name: p.name,
+    severity: p.severity,
+  }));
+
   return (
     <View className="mt-6">
-      <Text className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-        📋 회원용 요약 (1단계: 한 줄 결론)
-      </Text>
-      <View className="mt-2 rounded-lg border border-gray-200 bg-white p-4">
-        <Text className="text-sm leading-6 text-gray-800">{summary.conclusion}</Text>
+      {/* 결론 — 헤드라인처럼 큼지막하게 */}
+      <View className="mt-2 rounded-lg border border-indigo-100 bg-indigo-50/40 p-4">
+        <Text className="text-[10px] font-semibold uppercase tracking-wider text-indigo-700">
+          🎯 오늘의 결론
+        </Text>
+        <Text className="mt-1.5 text-base font-semibold leading-6 text-gray-900">
+          {summary.conclusion}
+        </Text>
       </View>
+
+      {/* 이슈 부위 한눈 보기 — chip cluster */}
+      {issueChips.length > 0 && (
+        <View className="mt-4">
+          <Text className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+            발견된 부위 ({issueChips.length})
+          </Text>
+          <View className="mt-2 flex-row flex-wrap">
+            {issueChips.map((c, i) => {
+              const bg =
+                c.severity === 'danger'
+                  ? '#fee2e2'
+                  : c.severity === 'warning'
+                    ? '#fef3c7'
+                    : '#dcfce7';
+              const fg =
+                c.severity === 'danger'
+                  ? '#991b1b'
+                  : c.severity === 'warning'
+                    ? '#92400e'
+                    : '#166534';
+              return (
+                <View
+                  key={i}
+                  className="mb-1.5 mr-1.5 rounded-full px-2.5 py-1"
+                  style={{ backgroundColor: bg }}
+                >
+                  <Text className="text-[11px] font-semibold" style={{ color: fg }}>
+                    {c.name}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       {summary.problems.length > 0 && (
         <>
-          <Text className="mt-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            핵심 문제 ({summary.problems.length})
+          <Text className="mt-5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            상세 진단 ({summary.problems.length})
           </Text>
           {summary.problems.map((p, i) => (
             <View key={i} className="mt-2 rounded-lg border border-gray-200 bg-white p-4">
