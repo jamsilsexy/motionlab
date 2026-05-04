@@ -3,6 +3,7 @@ import {
   AnalysisState,
   SH,
   type BestFrameData,
+  type Capture,
   type RecurrenceData,
   type SquatRep,
 } from './state';
@@ -231,6 +232,44 @@ function getBestFrames(): Record<string, BestFrameData> {
   return { ...trackerState.bestFrames };
 }
 
+/* ───────────────────────────────────────────────────────────
+ * bestFrames(관절별 최악 frame) → Capture[] 변환.
+ *
+ * web v17은 frame-by-frame addCapture 패턴. mobile은 SquatTracker가
+ *   issueBest로 모은 후 finalize 시점에 captures로 한번에 변환.
+ *   (라이브/영상 분석 path 둘 다 동일하게 사용 가능)
+ * ─────────────────────────────────────────────────────────── */
+function buildCapturesFromBestFrames(): Capture[] {
+  const mvId = AnalysisState.session.selectedMvId;
+  const mv = AppConfig.MOVEMENTS.find((m) => m.id === mvId);
+  const ranges = (mv?.ranges ?? {}) as Record<string, JointRange>;
+  const out: Capture[] = [];
+
+  Object.entries(trackerState.bestFrames).forEach(([jk, bf]) => {
+    const range = ranges[jk];
+    if (!range) return;
+    const ang = bf.angles[jk];
+    if (ang === null || ang === undefined || typeof ang !== 'number') return;
+
+    const risk = riskOf(ang, range);
+    if (risk === 'normal' || risk === 'ignore') return;
+
+    out.push({
+      id: `bf-${jk}-${bf.repIndex}`,
+      jointKey: jk,
+      jointName: range.name,
+      angle: ang,
+      normalRange: range,
+      severity: risk as 'warning' | 'danger',
+      expertClass: bf.deviation >= AppConfig.EXPERT.CRITICAL_DEVIATION_DEG ? 'CRITICAL' : undefined,
+      timeMs: bf.timeMs,
+      repIndex: bf.repIndex,
+    });
+  });
+
+  return out;
+}
+
 function getRepIndex(): number {
   return trackerState.repIndex;
 }
@@ -242,6 +281,15 @@ export const SquatTracker = {
   calcRecurrence,
   getBestFrames,
   getRepIndex,
+  buildCapturesFromBestFrames,
 };
 
-export { update, reset, summarizeReps, calcRecurrence, getBestFrames, getRepIndex };
+export {
+  update,
+  reset,
+  summarizeReps,
+  calcRecurrence,
+  getBestFrames,
+  getRepIndex,
+  buildCapturesFromBestFrames,
+};

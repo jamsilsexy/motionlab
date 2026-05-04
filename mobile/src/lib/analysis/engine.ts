@@ -448,6 +448,12 @@ function finalizeResult(): void {
   if (isOhs) {
     SH.setSqReps(SquatTracker.summarizeReps());
     SH.setRecurrence(SquatTracker.calcRecurrence());
+    // ★ SquatTracker.bestFrames(관절별 최악 frame) → captures 시드.
+    //   web v17은 frame-by-frame addCapture 패턴이었으나, mobile은 SquatTracker가
+    //   누적한 issueBest를 finalize 시점에 한번에 변환. 이거 안 하면 captures 빈 채로
+    //   ExpertFilter.selectCriticals → criticals 0개 → 점수 100 고정.
+    const seedCaptures = SquatTracker.buildCapturesFromBestFrames();
+    SH.setResult({ captures: seedCaptures });
   }
   const recurrence = AnalysisState.result.recurrence ?? {};
   const sqReps = AnalysisState.result.sqReps ?? [];
