@@ -1,24 +1,24 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "MOTION LAB",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "motionlab",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.jamsilsexy.formai",
+      "bundleIdentifier": "com.hawaiigym.motionlab",
       "supportsTablet": false,
       "infoPlist": {
-        "NSCameraUsageDescription": "FORM AI는 영상 분석을 위해 카메라 접근이 필요합니다."
+        "NSCameraUsageDescription": "MOTION LAB는 체형 분석을 위해 카메라 접근이 필요합니다."
       }
     },
     "android": {
-      "package": "com.jamsilsexy.formai",
+      "package": "com.hawaiigym.motionlab",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#4f46e5",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"

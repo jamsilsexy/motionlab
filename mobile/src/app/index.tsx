@@ -1,9 +1,11 @@
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Linking,
   Pressable,
   RefreshControl,
   Text,
@@ -54,6 +56,29 @@ export default function HomeScreen() {
       { text: '로그아웃', style: 'destructive', onPress: () => signOut() },
     ]);
   };
+
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+
+  const onFeedback = async () => {
+    const subject = encodeURIComponent('[MOTION LAB 피드백]');
+    const body = encodeURIComponent(
+      `\n\n— 자유롭게 의견을 남겨주세요 —\n\n` +
+        `[앱 정보]\n` +
+        `버전: ${appVersion}\n` +
+        `사용자: ${user?.email ?? '미로그인'}\n`,
+    );
+    const url = `mailto:hawaiigym.ys@gmail.com?subject=${subject}&body=${body}`;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('이메일 앱을 열 수 없어요', 'hawaiigym.ys@gmail.com 으로 직접 보내주세요.');
+    }
+  };
+
+  const openPrivacy = () =>
+    Linking.openURL('https://github.com/jamsilsexy/motionlab/blob/main/docs/privacy-policy.md');
+  const openTerms = () =>
+    Linking.openURL('https://github.com/jamsilsexy/motionlab/blob/main/docs/terms-of-service.md');
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -127,6 +152,20 @@ export default function HomeScreen() {
         <Text className="text-center text-[10px] text-gray-400">
           본 앱은 의료기기가 아니며 분석 결과는 참고용입니다.
         </Text>
+        <View className="mt-2 flex-row items-center justify-center">
+          <Pressable onPress={onFeedback} className="px-2 py-1">
+            <Text className="text-[10px] text-indigo-600">피드백 보내기</Text>
+          </Pressable>
+          <Text className="text-[10px] text-gray-300">·</Text>
+          <Pressable onPress={openPrivacy} className="px-2 py-1">
+            <Text className="text-[10px] text-gray-500">개인정보처리방침</Text>
+          </Pressable>
+          <Text className="text-[10px] text-gray-300">·</Text>
+          <Pressable onPress={openTerms} className="px-2 py-1">
+            <Text className="text-[10px] text-gray-500">이용약관</Text>
+          </Pressable>
+        </View>
+        <Text className="mt-1 text-center text-[10px] text-gray-300">v{appVersion}</Text>
       </View>
     </SafeAreaView>
   );
