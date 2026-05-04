@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -557,19 +558,34 @@ function IssueRow({ index, capture }: { index: number; capture: Capture }) {
   const sevColor = capture.severity === 'danger' ? '#ef4444' : '#f59e0b';
   const dev = devOf(capture.angle, capture.normalRange);
   return (
-    <View className="mt-2 flex-row items-center border-t border-gray-100 pt-2">
-      <View
-        className="mr-2 h-5 w-5 items-center justify-center rounded-full"
-        style={{ backgroundColor: sevColor }}
-      >
-        <Text className="text-[10px] font-bold text-white">{index}</Text>
+    <View className="mt-2 border-t border-gray-100 pt-2">
+      <View className="flex-row items-center">
+        <View
+          className="mr-2 h-5 w-5 items-center justify-center rounded-full"
+          style={{ backgroundColor: sevColor }}
+        >
+          <Text className="text-[10px] font-bold text-white">{index}</Text>
+        </View>
+        <View className="flex-1">
+          <Text className="text-xs font-semibold text-gray-900">{capture.jointName}</Text>
+          <Text className="text-[11px]" style={{ color: sevColor }}>
+            {Math.round(dev)}° 이탈 · 반복 {capture.repeatCount ?? 0}회
+          </Text>
+        </View>
       </View>
-      <View className="flex-1">
-        <Text className="text-xs font-semibold text-gray-900">{capture.jointName}</Text>
-        <Text className="text-[11px]" style={{ color: sevColor }}>
-          {Math.round(dev)}° 이탈 · 반복 {capture.repeatCount ?? 0}회
-        </Text>
-      </View>
+      {capture.frameDataUri && (
+        <View className="ml-7 mt-1.5 overflow-hidden rounded-md border border-gray-200">
+          <Image
+            source={{ uri: capture.frameDataUri }}
+            style={{ width: '100%', aspectRatio: 9 / 16 }}
+            contentFit="cover"
+          />
+          <Text className="bg-black/60 px-2 py-0.5 text-[10px] text-white">
+            🎯 이슈 발생 시점 — {Math.round(capture.timeMs / 100) / 10}s
+            {capture.repIndex ? ` (${capture.repIndex}번째 반복)` : ''}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }

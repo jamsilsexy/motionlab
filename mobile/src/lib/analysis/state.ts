@@ -168,6 +168,8 @@ export interface BestFrameData {
   landmarks: Landmark[];
   angles: JointAngles;
   repIndex: number;
+  /** 영상 분석 시 추출한 thumbnail file URI. 라이브 카메라 path는 undefined. */
+  imageUri?: string;
 }
 
 export interface SquatTrackerState {

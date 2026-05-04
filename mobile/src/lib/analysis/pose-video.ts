@@ -62,6 +62,9 @@ export async function analyzeVideoFile(opts: {
   let processed = 0;
   // frame들을 local에 누적 → 종료 시 한번에 store push (per-frame setRealtime 무한 spread 방지)
   const collectedFrames: FrameRecord[] = [];
+  // 모든 frame의 thumbnail uri 추적. SquatTracker가 best frame으로 선택한 것만
+  //   끝에 보존하고 나머지는 일괄 삭제 → 디스크 누적 방지 + 리포트 사진은 살림.
+  const thumbUrisByTime = new Map<number, string>();
 
   for (let i = 0; i < totalFrames; i += 1) {
     if (signal?.aborted) return { ok: false, error: '사용자 취소' };
@@ -105,14 +108,16 @@ export async function analyzeVideoFile(opts: {
     } catch (err) {
       console.warn(`[pose-video] pose detection failed at ${timeMs}ms:`, err);
       void deleteAsync(thumbUri, { idempotent: true }).catch(() => {});
-      // 누적 추론 실패 시에도 분석 자체는 계속 — 일부 frame 빠진 채 마무리
       continue;
     }
 
-    // ★ 메모리 폭증/디스크 누적 방지 — 추론 끝난 thumbnail 즉시 삭제
-    void deleteAsync(thumbUri, { idempotent: true }).catch(() => {});
+    if (!lms || lms.length < 33) {
+      void deleteAsync(thumbUri, { idempotent: true }).catch(() => {});
+      continue;
+    }
 
-    if (!lms || lms.length < 33) continue;
+    // 사진 캡쳐용으로 보관. finalize 후 사용 안 된 것만 정리 (cleanupThumbnails).
+    thumbUrisByTime.set(timeMs, thumbUri);
 
     if (!firstVisibilityLogged) {
       const sample = lms[23];
@@ -142,8 +147,8 @@ export async function analyzeVideoFile(opts: {
     const frame: FrameRecord = { timeMs, angles };
     collectedFrames.push(frame);
 
-    // SquatTracker.update — rep 카운트는 매 frame 필요 (내부적으로 SH.setSquatTracker 자동 호출)
-    SquatTracker.update(lmArray, angles, timeMs);
+    // SquatTracker.update — rep 카운트 + bestFrames(이슈 사진) 캡쳐
+    SquatTracker.update(lmArray, angles, timeMs, thumbUri);
 
     // 가벼운 realtime 표시만 갱신 (frameHistory는 X). 5 frame 간격으로 throttle.
     if (i % 5 === 0) {
@@ -184,8 +189,15 @@ export async function analyzeVideoFile(opts: {
   try {
     AnalysisEngine.finalizeResult();
   } catch (err) {
+    // finalize 실패해도 thumbnail 모두 정리해야 디스크 누적 X
+    cleanupThumbnails(thumbUrisByTime, new Set());
     return { ok: false, error: `finalize 실패: ${(err as Error).message}` };
   }
+
+  // ★ best frame이 사용한 timeMs만 보존, 나머지 thumbnail은 삭제 (디스크 정리)
+  const bestFrames = SquatTracker.getBestFrames();
+  const usedTimes = new Set<number>(Object.values(bestFrames).map((bf) => bf.timeMs));
+  cleanupThumbnails(thumbUrisByTime, usedTimes);
 
   onProgress?.({
     phase: 'done',
@@ -194,6 +206,17 @@ export async function analyzeVideoFile(opts: {
   });
 
   return { ok: true, frameCount: processed };
+}
+
+/**
+ * 사용 안 된 thumbnail 일괄 삭제. 보존할 timeMs 집합만 살림.
+ * 영상 분석 1회 = 60+ thumbnail 생성 → cleanup 안 하면 다음 분석에 누적.
+ */
+function cleanupThumbnails(all: Map<number, string>, keep: Set<number>): void {
+  all.forEach((uri, timeMs) => {
+    if (keep.has(timeMs)) return;
+    void deleteAsync(uri, { idempotent: true }).catch(() => {});
+  });
 }
 
 export { FRAME_INTERVAL_MS };

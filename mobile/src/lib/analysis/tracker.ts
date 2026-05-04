@@ -19,6 +19,7 @@ interface IssueBestFrame {
   range: JointRange;
   risk: Exclude<RiskLevel, 'normal' | 'ignore'>;
   isBottom: boolean;
+  imageUri?: string;
 }
 
 interface InternalRep {
@@ -58,7 +59,13 @@ function reset(): void {
   SH.resetSquatTracker();
 }
 
-function update(landmarks: Landmark[], angles: JointAngles, timeMs: number): void {
+function update(
+  landmarks: Landmark[],
+  angles: JointAngles,
+  timeMs: number,
+  /** 영상 분석 path에서만 전달. issueBest 갱신 시 같이 저장 → finalize 시 capture에 사진 포함 */
+  imageUri?: string,
+): void {
   const mvId = AnalysisState.session.selectedMvId;
   if (!mvId.startsWith('ohs')) return;
 
@@ -137,6 +144,7 @@ function update(landmarks: Landmark[], angles: JointAngles, timeMs: number): voi
                 landmarks: frame.landmarks,
                 angles: frame.angles,
                 repIndex: trackerState.repIndex,
+                imageUri: frame.imageUri,
               };
             }
           });
@@ -180,6 +188,7 @@ function update(landmarks: Landmark[], angles: JointAngles, timeMs: number): voi
           risk: risk as 'warning' | 'danger',
           isBottom:
             Math.abs(timeMs - (cur.bottomMs || 0)) < AppConfig.CAPTURE.BOTTOM_WINDOW_MS,
+          imageUri,
         };
       }
     });
@@ -264,6 +273,7 @@ function buildCapturesFromBestFrames(): Capture[] {
       expertClass: bf.deviation >= AppConfig.EXPERT.CRITICAL_DEVIATION_DEG ? 'CRITICAL' : undefined,
       timeMs: bf.timeMs,
       repIndex: bf.repIndex,
+      frameDataUri: bf.imageUri,
     });
   });
 
