@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import {
   Delegate,
@@ -6,16 +7,17 @@ import {
 } from 'react-native-mediapipe-posedetection';
 
 import { AnalysisEngine } from './engine';
-import { SH, useAnalysisStore, type FrameRecord } from './state';
+import { SH, type FrameRecord, useAnalysisStore } from './state';
 import { SquatTracker } from './tracker';
 import type { Landmark } from './types';
 
 const MODEL_FILE = 'pose_landmarker_lite.task';
-// 영상 분석 frame 추출 간격. 0.2s = 5fps.
-//   OHS 5 reps 평균 12-15초 영상 → 60-75 frame 추출 (분석 충분, 추출 시간 합리적).
-//   너무 잘게 (0.1s)면 thumbnail 생성 시간이 분석 시간을 압도.
-const FRAME_INTERVAL_MS = 200;
-// 1 frame 추출 + 분석 평균 200-400ms (저사양 폰 기준). 30초 영상 = 약 30-60s 처리 시간.
+// frame 추출 간격. 0.35s ≈ 2.85fps.
+//   OHS 1 rep ≈ 3-4초이므로 3fps도 충분 (descend/bottom/ascend 각 1-2 frame씩 잡힘).
+//   0.2s(5fps) → 0.35s 변경: frame 수 43% 감소 = 처리 시간 거의 절반.
+const FRAME_INTERVAL_MS = 350;
+// thumbnail 압축 품질 — Pose 추론은 0.4 정도면 충분 (JPEG artifact가 33 landmark 정확도에 미미).
+const THUMB_QUALITY = 0.4;
 const MIN_VIDEO_DURATION_MS = 3000;
 const MAX_VIDEO_DURATION_MS = 30000;
 
@@ -57,6 +59,8 @@ export async function analyzeVideoFile(opts: {
 
   let firstVisibilityLogged = false;
   let processed = 0;
+  // frame들을 local에 누적 → 종료 시 한번에 store push (per-frame setRealtime 무한 spread 방지)
+  const collectedFrames: FrameRecord[] = [];
 
   for (let i = 0; i < totalFrames; i += 1) {
     if (signal?.aborted) return { ok: false, error: '사용자 취소' };
@@ -72,12 +76,12 @@ export async function analyzeVideoFile(opts: {
     try {
       const t = await VideoThumbnails.getThumbnailAsync(videoUri, {
         time: timeMs,
-        quality: 0.7,
+        quality: THUMB_QUALITY,
       });
       thumbUri = t.uri;
     } catch (err) {
       console.warn(`[pose-video] thumbnail extract failed at ${timeMs}ms:`, err);
-      continue; // 일부 프레임 실패는 무시하고 계속
+      continue;
     }
 
     onProgress?.({
@@ -97,8 +101,13 @@ export async function analyzeVideoFile(opts: {
       lms = r.results?.[0]?.landmarks?.[0];
     } catch (err) {
       console.warn(`[pose-video] pose detection failed at ${timeMs}ms:`, err);
+      // 추론 실패해도 thumbnail 파일은 정리
+      void FileSystem.deleteAsync(thumbUri, { idempotent: true }).catch(() => {});
       continue;
     }
+
+    // ★ 메모리 폭증/디스크 누적 방지 — 추론 끝난 thumbnail 즉시 삭제
+    void FileSystem.deleteAsync(thumbUri, { idempotent: true }).catch(() => {});
 
     if (!lms || lms.length < 33) continue;
 
@@ -125,18 +134,22 @@ export async function analyzeVideoFile(opts: {
 
     const angles = AnalysisEngine.calcAngles(lmArray);
 
-    // store 누적 + SquatTracker.update (라이브와 동일 흐름)
-    const store = useAnalysisStore.getState();
+    // ★ frame은 local에만 누적 (매 frame setRealtime + spread 시 OOM 위험)
     const frame: FrameRecord = { timeMs, angles, landmarks: lmArray };
-    store.setRealtime({
-      currentLandmarks: lmArray,
-      currentAngles: angles,
-      frameCount: i + 1,
-      lastPoseMs: timeMs,
-      frameHistory: [...store.realtime.frameHistory, frame],
-      isPoseReady: true,
-    });
+    collectedFrames.push(frame);
+
+    // SquatTracker.update — rep 카운트는 매 frame 필요 (내부적으로 SH.setSquatTracker 자동 호출)
     SquatTracker.update(lmArray, angles, timeMs);
+
+    // 가벼운 realtime 표시만 갱신 (frameHistory는 X). 5 frame 간격으로 throttle.
+    if (i % 5 === 0) {
+      SH.setRealtime({
+        currentAngles: angles,
+        frameCount: i + 1,
+        lastPoseMs: timeMs,
+        isPoseReady: true,
+      });
+    }
 
     if (i % 10 === 0) {
       const phase = useAnalysisStore.getState().squatTracker.phase;
@@ -148,6 +161,13 @@ export async function analyzeVideoFile(opts: {
 
     processed += 1;
   }
+
+  // ★ 종료 시점에 frameHistory를 store에 한번에 push — finalizeResult가 buildSummary에서 읽음
+  SH.setRealtime({
+    frameHistory: collectedFrames,
+    frameCount: collectedFrames.length,
+    isPoseReady: true,
+  });
 
   onProgress?.({
     phase: 'finalizing',

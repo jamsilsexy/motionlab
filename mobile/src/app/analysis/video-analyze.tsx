@@ -92,10 +92,26 @@ export default function VideoAnalyzeScreen() {
     setProgress({ phase: 'extracting', current: 0, total: 0 });
     abortRef.current = new AbortController();
 
+    // progress callback throttle — 매 frame setProgress 시 React re-render 비용 큼.
+    // detecting 단계에서만 5 frame마다 갱신, 단계 전환은 항상 갱신.
+    let lastProgressUpdate = 0;
+    const onProgressThrottled = (p: VideoAnalyzeProgress) => {
+      const now = Date.now();
+      if (
+        p.phase !== 'detecting' ||
+        p.current === 0 ||
+        p.current === p.total ||
+        now - lastProgressUpdate >= 250
+      ) {
+        lastProgressUpdate = now;
+        setProgress(p);
+      }
+    };
+
     const result = await analyzeVideoFile({
       videoUri,
       videoDurationMs: videoDuration,
-      onProgress: setProgress,
+      onProgress: onProgressThrottled,
       signal: abortRef.current.signal,
     });
 
