@@ -35,7 +35,9 @@ export default function CameraAnalysisScreen() {
   const { memberId } = useLocalSearchParams<{ memberId?: string }>();
   const session = useAnalysisStore((s) => s.session);
   const repIndex = useAnalysisStore((s) => s.squatTracker.repIndex);
+  const trackerPhase = useAnalysisStore((s) => s.squatTracker.phase);
   const frameCount = useAnalysisStore((s) => s.realtime.frameCount);
+  const currentAngles = useAnalysisStore((s) => s.realtime.currentAngles);
 
   const [permission, setPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [phase, setPhase] = useState<'idle' | 'counting' | 'analyzing' | 'finalizing'>('idle');
@@ -278,6 +280,13 @@ export default function CameraAnalysisScreen() {
           )}
           <View className="mt-1 rounded-lg bg-black/40 px-3 py-1">
             <Text className="text-[10px] text-white">frame {frameCount}</Text>
+          </View>
+          {/* 디버그 패널 — rep 카운트 디버깅용. 안정화 후 제거 가능 */}
+          <View className="mt-1 rounded-lg bg-black/60 px-3 py-1">
+            <Text className="text-[10px] text-yellow-200">
+              L무릎 {currentAngles.leftKnee ?? '-'}° / R무릎 {currentAngles.rightKnee ?? '-'}° ·{' '}
+              phase:{trackerPhase}
+            </Text>
           </View>
         </SafeAreaView>
       )}

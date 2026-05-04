@@ -19,7 +19,11 @@ export function lmAngle(
   const B = lms[b];
   const C = lms[c];
   if (!A || !B || !C) return null;
-  if ((A.visibility ?? 0) < mv || (B.visibility ?? 0) < mv || (C.visibility ?? 0) < mv) {
+  // visibility가 undefined인 경우 (일부 MediaPipe 결과는 필드 미제공) → landmark 존재만으로 OK 처리
+  const va = A.visibility;
+  const vb = B.visibility;
+  const vc = C.visibility;
+  if ((va !== undefined && va < mv) || (vb !== undefined && vb < mv) || (vc !== undefined && vc < mv)) {
     return null;
   }
   return calcAngle(A, B, C);
@@ -64,7 +68,10 @@ export function avg(arr: number[]): number {
 }
 
 export function isVisible(lm: Landmark | undefined | null): boolean {
-  return !!lm && (lm.visibility ?? 0) >= AppConfig.REALTIME.MIN_VISIBILITY;
+  if (!lm) return false;
+  // visibility 필드가 없으면 landmark 존재만으로 visible 처리 (라이브러리별 미제공 케이스 대응)
+  if (lm.visibility === undefined) return true;
+  return lm.visibility >= AppConfig.REALTIME.MIN_VISIBILITY;
 }
 
 export function wait(ms: number): Promise<void> {

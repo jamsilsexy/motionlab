@@ -51,6 +51,18 @@ export function useLivePoseAnalysis(opts: {
         startTimeRef.current = Date.now();
         frameCountRef.current = 0;
         SquatTracker.reset();
+        // 첫 frame 진단 로그 — visibility 정보 없으면 라이브러리 호환성 문제 의심
+        const sample = lms[23];
+        console.log(
+          '[pose-live] first frame — vis(L_HIP):',
+          sample?.visibility,
+          'x:',
+          sample?.x?.toFixed(3),
+          'y:',
+          sample?.y?.toFixed(3),
+          'z:',
+          sample?.z?.toFixed(3),
+        );
       }
       const timeMs = Date.now() - startTimeRef.current;
       frameCountRef.current += 1;
@@ -83,6 +95,13 @@ export function useLivePoseAnalysis(opts: {
 
       // SquatTracker (OHS 운동에서만 내부 분기)
       SquatTracker.update(lmArray, angles, timeMs);
+
+      // 5 frame마다 무릎 각도 / phase 진단 로그 (rep 카운트 디버깅)
+      if (frameCountRef.current % 5 === 0) {
+        console.log(
+          `[pose-live] f${frameCountRef.current} L_knee:${angles.leftKnee} R_knee:${angles.rightKnee} phase:${AnalysisState.squatTracker.phase} rep:${AnalysisState.squatTracker.repIndex}`,
+        );
+      }
 
       if (onProgress) {
         onProgress(frameCountRef.current, AnalysisState.squatTracker.repIndex);
