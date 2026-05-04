@@ -327,6 +327,30 @@ function Tab1MemberSummary({ summary }: { summary: MemberSummary }) {
                   반복 {p.repCount}/{p.repTotal}회 감지
                 </Text>
               )}
+
+              {/* 핵심 문제 1, 2번에만 사진+skeleton 오버레이 표시 (대표 시각화) */}
+              {i < 2 && p.frameDataUri && p.landmarks && (
+                <View className="mt-2.5 overflow-hidden rounded-md border border-gray-200">
+                  <SkeletonOverlay
+                    imageUri={p.frameDataUri}
+                    landmarks={p.landmarks}
+                    highlightJointKey={p.jointKey}
+                    severity={p.severity === 'normal' ? 'warning' : p.severity}
+                  />
+                  <View className="bg-black/60 px-2 py-1">
+                    <Text className="text-[10px] font-semibold text-white">
+                      📸 이 시점에 가장 크게 벗어났어요
+                      {p.timeMs != null
+                        ? ` (${Math.round(p.timeMs / 100) / 10}s${p.capRepIndex ? ` · ${p.capRepIndex}회차` : ''})`
+                        : ''}
+                    </Text>
+                    <Text className="mt-0.5 text-[10px]" style={{ color: '#fca5a5' }}>
+                      빨간 점/선 = {p.name}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               {p.dailyImpact && (
                 <View className="mt-2 rounded-md bg-amber-50 p-2">
                   <Text className="text-[10px] font-semibold text-amber-800">
@@ -343,6 +367,25 @@ function Tab1MemberSummary({ summary }: { summary: MemberSummary }) {
                     ⚠️ 그대로 두면 생길 수 있는 통증
                   </Text>
                   <Text className="mt-0.5 text-[11px] leading-4 text-red-900">{p.painRisk}</Text>
+                </View>
+              )}
+              {p.cascade && (
+                <View className="mt-1.5 rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                  <Text className="text-[10px] font-semibold text-gray-700">
+                    📅 그대로 두면 시간이 지나며…
+                  </Text>
+                  <Text className="mt-1 text-[11px] leading-4 text-gray-700">
+                    <Text className="font-semibold">▸ 1-3개월: </Text>
+                    {p.cascade.short}
+                  </Text>
+                  <Text className="mt-0.5 text-[11px] leading-4 text-gray-700">
+                    <Text className="font-semibold">▸ 3-12개월: </Text>
+                    {p.cascade.mid}
+                  </Text>
+                  <Text className="mt-0.5 text-[11px] leading-4 text-gray-700">
+                    <Text className="font-semibold">▸ 1-3년: </Text>
+                    {p.cascade.long}
+                  </Text>
                 </View>
               )}
             </View>

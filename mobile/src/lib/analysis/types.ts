@@ -82,6 +82,15 @@ export interface SummaryProblem {
   painRisk?: string;
   /** 현재 일상에서 불편함을 느낄 수 있는 상황 — 예: "오래 앉아 있으면 허리가 뻐근해요" */
   dailyImpact?: string;
+  /** 누적 시나리오: 단기/중기/장기 부상 위험. 회원에게 부상의 진행 단계를 명시 */
+  cascade?: { short: string; mid: string; long: string };
+  /** 이슈 시점 캡쳐 사진 URI (영상 분석 path만, 라이브는 undefined) */
+  frameDataUri?: string;
+  /** 이슈 시점 33 landmark — SkeletonOverlay 그리기용 */
+  landmarks?: Landmark[];
+  /** 이슈 발생 시각 (ms) + 반복 인덱스 — 캡션용 */
+  timeMs?: number;
+  capRepIndex?: number;
 }
 
 export interface SummaryWhyItem {
