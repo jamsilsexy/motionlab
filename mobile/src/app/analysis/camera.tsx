@@ -42,6 +42,8 @@ export default function CameraAnalysisScreen() {
   const [countdown, setCountdown] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const navigatedRef = useRef(false);
+  // repIndex 최신값을 effect 안에서 참조하기 위한 ref (의존성에 넣으면 effect 재실행되어 타이머 reset 됨)
+  const repIndexRef = useRef(0);
 
   const mvId = session.selectedMvId;
   const movement = AppConfig.MOVEMENTS.find((m) => m.id === mvId);
@@ -53,6 +55,9 @@ export default function CameraAnalysisScreen() {
   const device = useCameraDevice('back');
   const solution = useLivePoseAnalysis({ isAnalyzing: phase === 'analyzing' });
   const { resetSession } = solution;
+
+  // store repIndex → ref 동기화 (의존성에 넣지 않기 위함)
+  repIndexRef.current = repIndex;
 
   /* ── mvId 변경 시 화면 state 초기화 (advanceQueue 후 같은 path replace 대응) ── */
   useEffect(() => {
@@ -78,7 +83,9 @@ export default function CameraAnalysisScreen() {
     }
   }, [session.analysisQueue.length, mvId, router]);
 
-  /* ── 카운트다운 ───────────────────────────────────────── */
+  /* ── 카운트다운 ─────────────────────────────────────────
+     주의: solution 객체는 매 render 새 reference라 deps에 넣지 말 것 (무한 reset).
+     resetSession 호출은 startAnalysis 시점으로 옮김. */
   useEffect(() => {
     if (phase !== 'counting') return;
     setCountdown(3);
@@ -87,26 +94,24 @@ export default function CameraAnalysisScreen() {
         if (n <= 1) {
           clearInterval(id);
           setPhase('analyzing');
-          solution.resetSession();
           return 0;
         }
         return n - 1;
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [phase, solution]);
+  }, [phase]);
 
-  /* ── 분석 진행 시간 + 자동 종료 (OHS rep 도달 / 30초) ─── */
+  /* ── 분석 진행 시간 + 자동 종료 (OHS rep 도달 / 30초) ───
+     repIndex는 ref로 참조 (deps에 넣으면 rep 1회 → 타이머 재시작) */
   useEffect(() => {
     if (phase !== 'analyzing') return;
     const startedAt = Date.now();
     const id = setInterval(() => {
       const t = Math.floor((Date.now() - startedAt) / 1000);
       setElapsed(t);
-      // OHS: rep 수 도달 시 자동 종료 (1초 grace 후)
       const done =
-        (isOhs && repIndex >= targetReps && t >= 5) || // 최소 5초 보장
-        t >= 30; // 최대 30초
+        (isOhs && repIndexRef.current >= targetReps && t >= 5) || t >= 30;
       if (done) {
         clearInterval(id);
         finalize();
@@ -114,7 +119,7 @@ export default function CameraAnalysisScreen() {
     }, 200);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, isOhs, repIndex, targetReps]);
+  }, [phase, isOhs, targetReps]);
 
   /* ── 분석 종료 + 다음 화면 ────────────────────────────── */
   const finalize = () => {
@@ -160,6 +165,7 @@ export default function CameraAnalysisScreen() {
 
   const startAnalysis = () => {
     if (phase !== 'idle') return;
+    resetSession();
     setPhase('counting');
   };
 
