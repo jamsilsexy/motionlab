@@ -220,6 +220,10 @@ export default function CameraAnalysisScreen() {
     );
   }
 
+  const goVideoAnalyze = () => {
+    router.replace(`/analysis/video-analyze?memberId=${memberId ?? ''}`);
+  };
+
   return (
     <View className="flex-1 bg-black">
       <MediapipeCamera
@@ -238,6 +242,11 @@ export default function CameraAnalysisScreen() {
           <Text className="ml-4 flex-1 text-sm font-semibold text-white">
             {stepNum}/{queueLen} {movement?.icon} {movement?.label}
           </Text>
+          {phase === 'idle' && (
+            <Pressable onPress={goVideoAnalyze}>
+              <Text className="text-xs font-semibold text-indigo-300">🎥 영상으로</Text>
+            </Pressable>
+          )}
         </View>
 
         {phase === 'idle' && movement && (
