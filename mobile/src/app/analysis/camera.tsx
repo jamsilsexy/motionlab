@@ -221,7 +221,17 @@ export default function CameraAnalysisScreen() {
   }
 
   const goVideoAnalyze = () => {
-    router.replace(`/analysis/video-analyze?memberId=${memberId ?? ''}`);
+    Alert.alert(
+      '영상 파일 분석으로 전환',
+      '갤러리 영상을 업로드하는 분석으로 전환합니다.\n\n이후 OHS 단계도 영상 분석으로 진행됩니다 (다시 라이브 카메라로 돌아오려면 영상 분석 화면 하단의 "📷 라이브 카메라" 버튼).',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '전환',
+          onPress: () => router.replace(`/analysis/video-analyze?memberId=${memberId ?? ''}`),
+        },
+      ],
+    );
   };
 
   return (

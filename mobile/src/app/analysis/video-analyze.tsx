@@ -189,7 +189,17 @@ export default function VideoAnalyzeScreen() {
   };
 
   const goLiveCamera = () => {
-    router.replace(`/analysis/camera?memberId=${memberId ?? ''}`);
+    Alert.alert(
+      '라이브 카메라로 전환',
+      '회원이 그 자리에서 OHS를 수행하는 라이브 분석으로 전환합니다.\n\n이후 OHS 단계도 라이브 카메라로 진행됩니다 (다시 영상 분석으로 돌아오려면 카메라 화면 상단의 "🎥 영상으로" 버튼).',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '전환',
+          onPress: () => router.replace(`/analysis/camera?memberId=${memberId ?? ''}`),
+        },
+      ],
+    );
   };
 
   /* ── 렌더 ─────────────────────────────────────────────── */
@@ -292,16 +302,20 @@ export default function VideoAnalyzeScreen() {
           </View>
         )}
 
-        {/* 라이브 카메라로 전환 옵션 */}
+        {/* 라이브 카메라로 전환 옵션 — secondary action.
+            우연한 클릭 방지 위해 outline 버튼 + 명확한 hit-area + confirmation Alert */}
         {!running && !videoUri && (
           <View className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <Text className="text-xs font-semibold text-gray-700">또는</Text>
-            <Pressable onPress={goLiveCamera} className="mt-2">
-              <Text className="text-sm font-semibold text-indigo-600">
-                📷 라이브 카메라로 분석 →
+            <Text className="text-[11px] font-semibold text-gray-500">또는</Text>
+            <Pressable
+              onPress={goLiveCamera}
+              className="mt-2 self-start rounded-md border border-gray-300 bg-white px-3 py-2 active:bg-gray-100"
+            >
+              <Text className="text-xs font-semibold text-gray-700">
+                📷 라이브 카메라로 전환
               </Text>
             </Pressable>
-            <Text className="mt-1 text-[11px] text-gray-500">
+            <Text className="mt-1.5 text-[11px] text-gray-500">
               회원이 그 자리에서 OHS 수행 시 사용
             </Text>
           </View>
