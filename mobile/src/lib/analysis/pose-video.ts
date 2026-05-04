@@ -14,12 +14,10 @@ import { SquatTracker } from './tracker';
 import type { Landmark } from './types';
 
 const MODEL_FILE = 'pose_landmarker_lite.task';
-// frame 추출 간격. 0.4s = 2.5fps.
-//   OHS 1 rep ≈ 3-4초이므로 2.5fps여도 rep당 8-10 frame.
-//   SquatTracker.KNEE_DOWN/UP/RECOVERY 임계값 완화와 함께 적용 시 rep 인식 충분.
-//   30s 영상 = 75 frame (vs 0.2s 150 frame) → 처리 시간 약 50% 단축.
-const FRAME_INTERVAL_MS = 400;
-// thumbnail 압축 품질 — Pose 추론은 0.4 정도면 충분 (JPEG artifact가 33 landmark 정확도에 미미).
+// frame 추출 간격. 0.5s = 2fps.
+//   OHS 1 rep ≈ 3-4초이므로 2fps여도 rep당 6-8 frame (SquatTracker 임계값 완화와 align).
+//   30s 영상 = 60 frame → GPU 메모리 누수 안전 영역.
+const FRAME_INTERVAL_MS = 500;
 const THUMB_QUALITY = 0.4;
 const MIN_VIDEO_DURATION_MS = 3000;
 const MAX_VIDEO_DURATION_MS = 30000;
@@ -99,13 +97,15 @@ export async function analyzeVideoFile(opts: {
         numPoses: 1,
         minPoseDetectionConfidence: 0.5,
         minPosePresenceConfidence: 0.5,
-        delegate: Delegate.GPU,
+        // CPU delegate — GPU upload/download가 매 호출마다 발생해 누적 메모리 누수 의심.
+        //   Pose Lite 모델은 CPU에서도 빠름. GPU 사용은 Live frame processor에서만 이득.
+        delegate: Delegate.CPU,
       });
       lms = r.results?.[0]?.landmarks?.[0];
     } catch (err) {
       console.warn(`[pose-video] pose detection failed at ${timeMs}ms:`, err);
-      // 추론 실패해도 thumbnail 파일은 정리
       void deleteAsync(thumbUri, { idempotent: true }).catch(() => {});
+      // 누적 추론 실패 시에도 분석 자체는 계속 — 일부 frame 빠진 채 마무리
       continue;
     }
 
@@ -155,15 +155,17 @@ export async function analyzeVideoFile(opts: {
       });
     }
 
-    if (i % 10 === 0) {
-      const phase = useAnalysisStore.getState().squatTracker.phase;
-      const rep = useAnalysisStore.getState().squatTracker.repIndex;
-      console.log(
-        `[pose-video] f${i + 1}/${totalFrames} L:${angles.leftKnee} R:${angles.rightKnee} phase:${phase} rep:${rep}`,
-      );
-    }
+    // 모든 frame 진단 로그 — 어느 frame에서 튕기는지 추적용
+    const phase = useAnalysisStore.getState().squatTracker.phase;
+    const rep = useAnalysisStore.getState().squatTracker.repIndex;
+    console.log(
+      `[pose-video] f${i + 1}/${totalFrames} L:${angles.leftKnee} R:${angles.rightKnee} ph:${phase} rep:${rep}`,
+    );
 
     processed += 1;
+
+    // ★ JS 이벤트 루프 양보 — GC 기회 확보 + UI 반응성 유지
+    await new Promise<void>((r) => setTimeout(r, 0));
   }
 
   // ★ 종료 시점에 frameHistory를 store에 한번에 push — finalizeResult가 buildSummary에서 읽음
