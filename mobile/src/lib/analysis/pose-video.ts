@@ -1,4 +1,6 @@
-import * as FileSystem from 'expo-file-system';
+// expo-file-system 55부터 deleteAsync는 legacy 서브패스로 이동.
+//   새 API는 new File(uri).delete() 형태인데 deleteAsync 그대로 사용하려면 /legacy.
+import { deleteAsync } from 'expo-file-system/legacy';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import {
   Delegate,
@@ -102,12 +104,12 @@ export async function analyzeVideoFile(opts: {
     } catch (err) {
       console.warn(`[pose-video] pose detection failed at ${timeMs}ms:`, err);
       // 추론 실패해도 thumbnail 파일은 정리
-      void FileSystem.deleteAsync(thumbUri, { idempotent: true }).catch(() => {});
+      void deleteAsync(thumbUri, { idempotent: true }).catch(() => {});
       continue;
     }
 
     // ★ 메모리 폭증/디스크 누적 방지 — 추론 끝난 thumbnail 즉시 삭제
-    void FileSystem.deleteAsync(thumbUri, { idempotent: true }).catch(() => {});
+    void deleteAsync(thumbUri, { idempotent: true }).catch(() => {});
 
     if (!lms || lms.length < 33) continue;
 
