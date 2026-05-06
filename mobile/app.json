@@ -64,14 +64,14 @@
       [
         "react-native-vision-camera",
         {
-          "cameraPermissionText": "FORM AI는 영상 분석을 위해 카메라 접근이 필요합니다.",
+          "cameraPermissionText": "MOTION LAB는 체형 분석을 위해 카메라 접근이 필요합니다.",
           "enableMicrophonePermission": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "FORM AI는 회원 영상 분석을 위해 사진/영상 라이브러리 접근이 필요합니다."
+          "photosPermission": "MOTION LAB는 회원 영상 분석을 위해 사진/영상 라이브러리 접근이 필요합니다."
         }
       ],
       [

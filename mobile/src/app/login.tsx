@@ -65,8 +65,8 @@ export default function LoginScreen() {
         className="flex-1"
       >
         <View className="flex-1 justify-center px-6">
-          <Text className="mb-2 text-3xl font-bold text-gray-900">FORM AI</Text>
-          <Text className="mb-8 text-sm text-gray-500">PT 트레이너 체형 분석 도구</Text>
+          <Text className="mb-2 text-3xl font-bold text-gray-900">MOTION LAB</Text>
+          <Text className="mb-8 text-sm text-gray-500">AI 33-landmark 체형 분석 — PT 트레이너용</Text>
 
           <View className="mb-3">
             <Text className="mb-1.5 text-xs font-semibold text-gray-700">이메일</Text>

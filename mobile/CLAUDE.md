@@ -4,7 +4,7 @@
 
 ## 프로젝트 정체성
 
-- **이름**: FORM AI 모바일 앱 (PT 트레이너용 체형 분석)
+- **이름**: MOTION LAB 모바일 앱 (PT 트레이너용 체형 분석) — 구 FORM AI
 - **목표**: iOS/Android 스토어 출시
 - **현재 단계**: 베타 (form_ai_v17.html → React Native 마이그레이션 진행 중)
 - **백엔드**: Firebase (변경 없음 — Auth / Firestore / Storage / Cloud Functions / App Check)
