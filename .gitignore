@@ -9,3 +9,10 @@ npm-debug.log*
 Thumbs.db
 firebase-debug.log
 .firebase/
+
+# V2 web (마이그레이션 원본 — public repo에 노출 불필요)
+form_ai_v17.html
+index.html
+
+# 작업 패치 파일
+*.patch

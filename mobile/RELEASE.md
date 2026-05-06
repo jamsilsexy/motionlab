@@ -10,8 +10,8 @@
 - **앱 정체성**: app.json `name: MOTION LAB`, package `com.hawaiigym.motionlab`, scheme `motionlab`, version 1.0.0
 - **권한 텍스트**: 카메라/갤러리 한국어 안내 (vision-camera + image-picker plugin 옵션)
 - **adaptive icon 배경**: indigo `#4f46e5`
-- **개인정보처리방침**: `mobile/docs/privacy-policy.md` (5년 보관 / 의료기기 면책 / 사업자 정보 포함)
-- **이용약관**: `mobile/docs/terms-of-service.md` (분석 한계 면책 / 트레이너 의무)
+- **개인정보처리방침**: `docs/privacy-policy.md` (5년 보관 / 의료기기 면책 / 사업자 정보 포함)
+- **이용약관**: `docs/terms-of-service.md` (분석 한계 면책 / 트레이너 의무)
 - **in-app footer**: 회원 목록 화면(`src/app/index.tsx`) 하단에 "피드백 보내기 · 개인정보처리방침 · 이용약관 · v1.0.0" 추가
   - 피드백: `mailto:hawaiigym.ys@gmail.com` (subject + 앱 버전/사용자 자동 포함)
   - 약관 링크: `github.com/jamsilsexy/motionlab/blob/main/docs/...` (URL은 GitHub repo 만든 후 정확한 경로로 수정 필요)

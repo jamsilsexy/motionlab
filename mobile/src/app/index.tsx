@@ -76,9 +76,9 @@ export default function HomeScreen() {
   };
 
   const openPrivacy = () =>
-    Linking.openURL('https://github.com/jamsilsexy/motionlab/blob/main/docs/privacy-policy.md');
+    Linking.openURL('https://jamsilsexy.github.io/motionlab/privacy-policy');
   const openTerms = () =>
-    Linking.openURL('https://github.com/jamsilsexy/motionlab/blob/main/docs/terms-of-service.md');
+    Linking.openURL('https://jamsilsexy.github.io/motionlab/terms-of-service');
 
   return (
     <SafeAreaView className="flex-1 bg-white">
