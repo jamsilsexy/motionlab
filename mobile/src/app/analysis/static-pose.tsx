@@ -2,7 +2,15 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -42,7 +50,14 @@ export default function StaticPoseScreen() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('권한 필요', '체형 사진 분석을 위해 사진 라이브러리 접근 권한이 필요합니다.');
+        Alert.alert(
+          '권한 필요',
+          '체형 사진 분석을 위해 사진 라이브러리 접근 권한이 필요합니다.',
+          [
+            { text: '취소', style: 'cancel' },
+            { text: '설정 열기', onPress: () => Linking.openSettings() },
+          ],
+        );
         return;
       }
       const r = await ImagePicker.launchImageLibraryAsync({

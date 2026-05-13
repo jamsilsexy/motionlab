@@ -54,13 +54,10 @@ service cloud.firestore {
     /* ─────────────────────────────────────────────────────────
        members/{ownerUid}/list/{memberId} — 트레이너의 회원 명단
        본인(트레이너 uid) 외 절대 접근 불가
+       QC fix: 부모 doc match (members/{ownerUid})는 Firestore subcollection
+         접근에 불필요하고 임의 필드 write 표면을 늘림 → 제거.
        ──────────────────────────────────────────────────────── */
     match /members/{ownerUid}/list/{memberId} {
-      allow read, write: if isOwner(ownerUid) || isAdmin();
-    }
-
-    // members/{ownerUid} 자체 문서 (하위 컬렉션의 부모)
-    match /members/{ownerUid} {
       allow read, write: if isOwner(ownerUid) || isAdmin();
     }
 
@@ -69,19 +66,14 @@ service cloud.firestore {
     match /analyses/{ownerUid}/list/{analysisId} {
       allow read, write: if isOwner(ownerUid) || isAdmin();
     }
-    match /analyses/{ownerUid} {
-      allow read, write: if isOwner(ownerUid) || isAdmin();
-    }
 
-    /* consent_logs/{ownerUid}/list/{logId} — 회원 동의 이력
-       본인(트레이너 uid)만 쓰기, admin은 감사용 읽기 가능 */
+    /* consent_logs/{ownerUid}/list/{logId} — 회원 동의 이력 (5년 보관)
+       본인(트레이너 uid)만 쓰기, admin은 감사용 읽기 가능
+       QC fix: 5년 retention 위해 update/delete 차단 유지 + 부모 doc 광범위 write 차단 */
     match /consent_logs/{ownerUid}/list/{logId} {
       allow read: if isOwner(ownerUid) || isAdmin();
       allow create: if isOwner(ownerUid);
       allow update, delete: if isAdmin();
-    }
-    match /consent_logs/{ownerUid} {
-      allow read, write: if isOwner(ownerUid) || isAdmin();
     }
 
     /* admin_audit_log/{logId} — admin claim 변경 감사 로그

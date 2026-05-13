@@ -1,4 +1,5 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import {
   Delegate,
@@ -12,7 +13,7 @@ import {
 } from 'react-native-mediapipe-posedetection';
 
 import { AnalysisEngine } from './engine';
-import { AnalysisState, SH, useAnalysisStore, type FrameRecord } from './state';
+import { AnalysisState, SH, type FrameRecord } from './state';
 import { SquatTracker } from './tracker';
 import type { Landmark } from './types';
 
@@ -31,13 +32,20 @@ const MODEL_FILE = 'pose_landmarker_lite.task';
 export function useLivePoseAnalysis(opts: {
   isAnalyzing: boolean;
   onProgress?: (frameCount: number, repCount: number) => void;
-}): MediaPipeSolution & { resetSession: () => void } {
+}): MediaPipeSolution & { resetSession: () => void; flushFrames: () => void } {
   const { isAnalyzing, onProgress } = opts;
   const isAnalyzingRef = useRef(isAnalyzing);
   isAnalyzingRef.current = isAnalyzing;
 
   const startTimeRef = useRef<number | null>(null);
   const frameCountRef = useRef(0);
+  // QC fix: frameHistory를 매 frame store에 spread 누적하지 않고 ref에 push.
+  //   기존 [...store.realtime.frameHistory, frame] 패턴은 O(N²) 메모리 + setState 부하 → 라이브 OOM 유발.
+  //   pose-video.ts와 동일하게 ref에 누적 → finalize 시점에 store push (flushFrames).
+  //   landmarks 필드는 buildSummary가 안 쓰므로 제외 → 메모리 ~2/3 절감.
+  const collectedFramesRef = useRef<FrameRecord[]>([]);
+  // QC fix: AppState 백그라운드 시 timer drift → 가짜 rep 방지. background 진입 시 ref들 리셋.
+  const lastFrameTimeRef = useRef<number>(0);
 
   const onResults = useCallback(
     (bundle: PoseDetectionResultBundle) => {
@@ -50,21 +58,31 @@ export function useLivePoseAnalysis(opts: {
       if (startTimeRef.current === null) {
         startTimeRef.current = Date.now();
         frameCountRef.current = 0;
+        collectedFramesRef.current = [];
         SquatTracker.reset();
-        // 첫 frame 진단 로그 — visibility 정보 없으면 라이브러리 호환성 문제 의심
-        const sample = lms[23];
-        console.log(
-          '[pose-live] first frame — vis(L_HIP):',
-          sample?.visibility,
-          'x:',
-          sample?.x?.toFixed(3),
-          'y:',
-          sample?.y?.toFixed(3),
-          'z:',
-          sample?.z?.toFixed(3),
-        );
+        if (__DEV__) {
+          const sample = lms[23];
+          console.log(
+            '[pose-live] first frame — vis(L_HIP):',
+            sample?.visibility,
+            'x:',
+            sample?.x?.toFixed(3),
+            'y:',
+            sample?.y?.toFixed(3),
+          );
+        }
       }
-      const timeMs = Date.now() - startTimeRef.current;
+      const nowMs = Date.now();
+      // QC fix: 5초 이상 frame이 안 들어오면 백그라운드 후 복귀로 간주 → 세션 리셋
+      if (lastFrameTimeRef.current > 0 && nowMs - lastFrameTimeRef.current > 5000) {
+        startTimeRef.current = nowMs;
+        frameCountRef.current = 0;
+        collectedFramesRef.current = [];
+        SquatTracker.reset();
+        if (__DEV__) console.log('[pose-live] long gap detected → session reset');
+      }
+      lastFrameTimeRef.current = nowMs;
+      const timeMs = nowMs - startTimeRef.current;
       frameCountRef.current += 1;
 
       // MediaPipe Landmark shape == 우리 Landmark (x/y/z/visibility 동일).
@@ -80,24 +98,23 @@ export function useLivePoseAnalysis(opts: {
       // 운동별 시점에 맞는 calcAngles
       const angles = AnalysisEngine.calcAngles(lmArray);
 
-      // realtime 갱신 + frame history 누적
-      const store = useAnalysisStore.getState();
-      const frame: FrameRecord = { timeMs, angles, landmarks: lmArray };
+      // QC fix: frameHistory는 ref에만 push (mutate) — buildSummary가 안 쓰는 landmarks 필드 제외
+      const frame: FrameRecord = { timeMs, angles };
+      collectedFramesRef.current.push(frame);
 
-      store.setRealtime({
+      // realtime 가벼운 표시만 갱신 — frameHistory는 finalize 시점에 한 번에 push
+      SH.setRealtime({
         currentLandmarks: lmArray,
         currentAngles: angles,
         frameCount: frameCountRef.current,
         lastPoseMs: timeMs,
-        frameHistory: [...store.realtime.frameHistory, frame],
         isPoseReady: true,
       });
 
       // SquatTracker (OHS 운동에서만 내부 분기)
       SquatTracker.update(lmArray, angles, timeMs);
 
-      // 5 frame마다 무릎 각도 / phase 진단 로그 (rep 카운트 디버깅)
-      if (frameCountRef.current % 5 === 0) {
+      if (__DEV__ && frameCountRef.current % 5 === 0) {
         console.log(
           `[pose-live] f${frameCountRef.current} L_knee:${angles.leftKnee} R_knee:${angles.rightKnee} phase:${AnalysisState.squatTracker.phase} rep:${AnalysisState.squatTracker.repIndex}`,
         );
@@ -111,7 +128,7 @@ export function useLivePoseAnalysis(opts: {
   );
 
   const onError = useCallback((err: DetectionError) => {
-    console.warn('[pose-live] error:', err?.code, err?.message);
+    if (__DEV__) console.warn('[pose-live] error:', err?.code, err?.message);
   }, []);
 
   const solution = usePoseDetection(
@@ -132,12 +149,32 @@ export function useLivePoseAnalysis(opts: {
   const resetSession = useCallback(() => {
     startTimeRef.current = null;
     frameCountRef.current = 0;
+    lastFrameTimeRef.current = 0;
+    collectedFramesRef.current = [];
     SH.resetRealtime();
     SH.resetResult();
     SquatTracker.reset();
   }, []);
 
-  return { ...solution, resetSession };
+  // QC fix: finalize 호출 전에 collectedFramesRef.current를 store frameHistory에 push.
+  //   engine.buildSummary는 AnalysisState.realtime.frameHistory를 reads.
+  const flushFrames = useCallback(() => {
+    SH.setRealtime({ frameHistory: [...collectedFramesRef.current] });
+  }, []);
+
+  // QC fix: AppState background 시 시간 drift 가드 — 다음 active 복귀 frame이 자동 5초 gap 감지로 리셋되도록.
+  //   그리고 background 진입 즉시 lastFrameTime을 일부러 멀리 reset (5초 이상 gap 강제 트리거).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'background' || next === 'inactive') {
+        // 의도적으로 0으로 두지 않음 (0은 첫 frame 의미) — 작은 음수로 두어 복귀 시 5초 gap 트리거
+        lastFrameTimeRef.current = Date.now() - 10000;
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  return { ...solution, resetSession, flushFrames };
 }
 
 /* ───────────────────────────────────────────────────────────

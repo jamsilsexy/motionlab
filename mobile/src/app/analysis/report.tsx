@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -112,20 +112,24 @@ export default function ReportScreen() {
     [aggregate.signature, previousSignature, previousAt],
   );
 
-  // 분석 종료 후 — 현재 signature를 회원 영구 저장 (다음 분석 시 prev로 사용)
-  // 가드: signature 존재 + member id 존재. 1회만 발사 (member.id + signature 변경 시).
+  // QC fix: 분석 종료 후 lastSignature 영구 저장. ref로 중복 firing 가드 (aggregate.signature가
+  //   re-aggregate마다 새 참조라 useEffect deps만으로는 부족했음). member id별 1회만 발사.
+  const persistedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!member?.id || !aggregate.signature) return;
-    const updated = {
-      ...member,
+    if (persistedRef.current === member.id) return;
+    persistedRef.current = member.id;
+    // 메모리상 member에 stale fields가 있을 수 있어 lastSignature/lastAnalyzedAt 만 patch (merge 신뢰)
+    persistMember({
+      id: member.id,
       lastSignature: aggregate.signature,
       lastAnalyzedAt: new Date().toISOString(),
       lastAnalysis: new Date().toISOString(),
-    };
-    persistMember(updated).catch((err) => {
-      console.warn('[report] failed to persist lastSignature:', err);
+    } as typeof member).catch((err) => {
+      if (__DEV__) console.warn('[report] failed to persist lastSignature:', err);
+      // 실패 시 다음 진입 때 재시도되도록 ref 풀어주기
+      persistedRef.current = null;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [member?.id, aggregate.signature]);
 
   return (

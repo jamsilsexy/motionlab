@@ -532,13 +532,25 @@ function finalizeMultiResult(): void {
       }
     });
     (r.criticalIssues ?? []).forEach((c) => {
-      if (!seenJointKeys.has(c.jointKey)) {
+      // QC fix: 같은 jointKey가 ohs_front/ohs_side 양쪽에서 발견되면
+      //   더 심각한 (deviation 큰) 쪽을 유지해야 함. 기존 코드는 먼저 본 것만 keep → milder 결과 노출
+      const existingIdx = mergedCriticals.findIndex((m) => m.jointKey === c.jointKey);
+      if (existingIdx < 0) {
         seenJointKeys.add(c.jointKey);
         mergedCriticals.push(c);
+      } else {
+        const existing = mergedCriticals[existingIdx];
+        const newDev = devOf(c.angle, c.normalRange);
+        const existDev = devOf(existing.angle, existing.normalRange);
+        if (newDev > existDev) {
+          mergedCriticals[existingIdx] = c;
+        }
       }
     });
   });
 
+  // QC fix: severity 정렬 후 slice — 단순 insertion-order slice는 더 나쁜 이슈를 누락
+  mergedCriticals.sort((a, b) => devOf(b.angle, b.normalRange) - devOf(a.angle, a.normalRange));
   const limitedCriticals = mergedCriticals.slice(0, AppConfig.EXPERT.MAX_CRITICAL_OUTPUT);
   SH.setJointSummary(mergedSummary);
   SH.setCritical(limitedCriticals);
@@ -1673,6 +1685,29 @@ function compareWithPreviousAnalysis(
 ): ComparisonResult | null {
   if (!current || !previous) return null;
 
+  // QC fix: dominantJoint는 'leftKnee' 같은 영문 키 — UI에 그대로 노출되면 어색.
+  //   한글 라벨 매핑 (config.ts movement ranges의 name 필드와 일치).
+  const PLAIN_JOINT_NAME: Record<string, string> = {
+    leftKnee: '왼쪽 무릎',
+    rightKnee: '오른쪽 무릎',
+    leftHip: '왼쪽 고관절',
+    rightHip: '오른쪽 고관절',
+    leftAnkle: '왼쪽 발목',
+    rightAnkle: '오른쪽 발목',
+    leftShoulder: '왼쪽 어깨',
+    rightShoulder: '오른쪽 어깨',
+    spine: '척추 정렬',
+    hipShift: '골반 좌우 이동',
+    ankleDorsi: '발목 배굴',
+    thoracicFlex: '체간 기울기',
+    trunkLean: '체간 기울기',
+    spineSymmetry: '척추 대칭',
+    footOutward: '발 외회전',
+    fhpAngle: '거북목',
+    roundShoulder: '라운드숄더',
+  };
+  const labelOf = (k: string | null): string => (k ? PLAIN_JOINT_NAME[k] ?? k : '');
+
   const candidates: ComparisonChange[] = [];
 
   // ① 안정성 변화 (avgStability 5점 이상 차이)
@@ -1695,7 +1730,7 @@ function compareWithPreviousAnalysis(
         candidates.push({
           type: devDiff < 0 ? 'improve' : 'worsen',
           label: devDiff < 0 ? '개선' : '악화',
-          metric: `${current.dominantJoint} 이탈 각도`,
+          metric: `${labelOf(current.dominantJoint)} 이탈 각도`,
           text: `${devDiff < 0 ? '−' : '+'}${Math.abs(Math.round(devDiff))}° 변화`,
           priority: 2,
         });
@@ -1705,7 +1740,7 @@ function compareWithPreviousAnalysis(
         type: 'change',
         label: '변화',
         metric: '주요 관찰 부위',
-        text: `${previous.dominantJoint} → ${current.dominantJoint}`,
+        text: `${labelOf(previous.dominantJoint)} → ${labelOf(current.dominantJoint)}`,
         priority: 3,
       });
     }

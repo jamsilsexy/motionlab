@@ -1,6 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  BackHandler,
+  Linking,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice } from 'react-native-vision-camera';
 import { MediapipeCamera } from 'react-native-mediapipe-posedetection';
@@ -35,9 +43,7 @@ export default function CameraAnalysisScreen() {
   const { memberId } = useLocalSearchParams<{ memberId?: string }>();
   const session = useAnalysisStore((s) => s.session);
   const repIndex = useAnalysisStore((s) => s.squatTracker.repIndex);
-  const trackerPhase = useAnalysisStore((s) => s.squatTracker.phase);
   const frameCount = useAnalysisStore((s) => s.realtime.frameCount);
-  const currentAngles = useAnalysisStore((s) => s.realtime.currentAngles);
 
   const [permission, setPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [phase, setPhase] = useState<'idle' | 'counting' | 'analyzing' | 'finalizing'>('idle');
@@ -56,7 +62,9 @@ export default function CameraAnalysisScreen() {
 
   const device = useCameraDevice('back');
   const solution = useLivePoseAnalysis({ isAnalyzing: phase === 'analyzing' });
-  const { resetSession } = solution;
+  const { resetSession, flushFrames } = solution;
+  // QC fix: setTimeout id ref — mvId 변경/unmount 시 clear (detached navigation 방지)
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // store repIndex → ref 동기화 (의존성에 넣지 않기 위함)
   repIndexRef.current = repIndex;
@@ -68,7 +76,32 @@ export default function CameraAnalysisScreen() {
     setElapsed(0);
     setCountdown(0);
     resetSession();
+    // QC fix: pending navigation timeout 정리 (detached navigation 방지)
+    if (navTimeoutRef.current) {
+      clearTimeout(navTimeoutRef.current);
+      navTimeoutRef.current = null;
+    }
   }, [mvId, resetSession]);
+
+  /* QC fix: unmount 시 pending timeout cleanup */
+  useEffect(() => {
+    return () => {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+    };
+  }, []);
+
+  /* QC fix: Android hardware back button — 분석 중이면 cancelAnalysis로 가드 */
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (phase === 'analyzing' || phase === 'counting') {
+        cancelAnalysis();
+        return true; // back 차단
+      }
+      return false; // 기본 동작
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   /* ── 권한 ─────────────────────────────────────────────── */
   useEffect(() => {
@@ -129,17 +162,21 @@ export default function CameraAnalysisScreen() {
     navigatedRef.current = true;
     setPhase('finalizing');
 
+    // QC fix: ref 누적 frameHistory를 store에 push (engine.buildSummary가 reads)
+    flushFrames();
+
     try {
       AnalysisEngine.finalizeResult();
     } catch (err) {
-      console.warn('[camera] finalizeResult failed:', err);
+      if (__DEV__) console.warn('[camera] finalizeResult failed:', err);
     }
 
     const finalResult = useAnalysisStore.getState().result;
     if (mvId) SH.saveCurrentResult(mvId, finalResult);
     const next = SH.advanceQueue();
 
-    setTimeout(() => {
+    navTimeoutRef.current = setTimeout(() => {
+      navTimeoutRef.current = null;
       if (!next) {
         // 큐 끝 — 보완 테스트 추천
         const sess = useAnalysisStore.getState().session;
@@ -203,10 +240,20 @@ export default function CameraAnalysisScreen() {
           체형 분석은 라이브 카메라로 진행합니다. 설정에서 카메라 접근을 허용한 뒤 다시 시도해주세요.
         </Text>
         <Pressable
-          onPress={() => router.replace('/')}
+          onPress={() => Linking.openSettings()}
           className="mt-6 rounded-lg bg-indigo-600 px-6 py-3"
         >
-          <Text className="text-sm font-semibold text-white">홈으로</Text>
+          <Text className="text-sm font-semibold text-white">설정 열기</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            // QC fix: 권한 거부 시 stale queue 정리 후 홈으로
+            SH.resetSession();
+            router.replace('/');
+          }}
+          className="mt-3 rounded-lg border border-gray-300 px-6 py-3"
+        >
+          <Text className="text-sm text-gray-700">홈으로</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -303,13 +350,6 @@ export default function CameraAnalysisScreen() {
           )}
           <View className="mt-1 rounded-lg bg-black/40 px-3 py-1">
             <Text className="text-[10px] text-white">frame {frameCount}</Text>
-          </View>
-          {/* 디버그 패널 — rep 카운트 디버깅용. 안정화 후 제거 가능 */}
-          <View className="mt-1 rounded-lg bg-black/60 px-3 py-1">
-            <Text className="text-[10px] text-yellow-200">
-              L무릎 {currentAngles.leftKnee ?? '-'}° / R무릎 {currentAngles.rightKnee ?? '-'}° ·{' '}
-              phase:{trackerPhase}
-            </Text>
           </View>
         </SafeAreaView>
       )}

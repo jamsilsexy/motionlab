@@ -1,4 +1,4 @@
-import { Canvas, Path, Skia, useCanvasRef } from '@shopify/react-native-skia';
+import { Canvas, ImageFormat, Path, Skia, useCanvasRef } from '@shopify/react-native-skia';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -84,12 +84,14 @@ export function ConsentModal({ visible, memberId, memberName, onCancel, onConfir
   const submit = async () => {
     if (!canConfirm) return;
     const image = canvasRef.current?.makeImageSnapshot();
-    const base64 = image?.encodeToBase64();
+    // QC fix: 기존 default PNG 인코딩은 정밀 서명 시 수백 KB → Firestore 1MB doc 한계 위협.
+    //   JPEG 60% quality로 인코딩 → 일반 서명 ~20-40KB (충분히 시각적 동일성 유지).
+    const base64 = image?.encodeToBase64(ImageFormat.JPEG, 60);
     if (!base64) {
       Alert.alert('서명 캡처 실패', '서명을 다시 시도해 주세요.');
       return;
     }
-    const dataUrl = `data:image/png;base64,${base64}`;
+    const dataUrl = `data:image/jpeg;base64,${base64}`;
     const agreedTerms: AgreedTerms = {
       dataCollection: agreedDataCollection,
       aiAnalysis: agreedAiAnalysis,

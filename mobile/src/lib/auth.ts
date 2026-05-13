@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -9,6 +10,7 @@ import {
 import { useEffect, useState } from 'react';
 
 import { auth } from './firebase';
+import { SH, useAnalysisStore } from './analysis/state';
 
 export async function signInEmail(email: string, password: string): Promise<User> {
   const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -22,6 +24,20 @@ export async function signUpEmail(email: string, password: string): Promise<User
 
 export async function signOut(): Promise<void> {
   await fbSignOut(auth);
+  // QC fix: 트레이너 A 로그아웃 후 B 로그인 시 zustand에 A의 회원/분석 데이터가 남아
+  //   B 화면에 노출 + B의 Firestore subtree에 잘못된 write가 일어나던 문제 차단.
+  //   - session/result/realtime/squatTracker 초기화
+  //   - members 배열 초기화 + AsyncStorage 캐시 삭제
+  try {
+    SH.resetSession();
+    SH.resetResult();
+    SH.resetRealtime();
+    SH.resetSquatTracker();
+    useAnalysisStore.setState({ members: [] });
+    await AsyncStorage.removeItem('formAI_members');
+  } catch (err) {
+    if (__DEV__) console.warn('[auth] post-signOut cleanup failed:', err);
+  }
 }
 
 export async function resetPassword(email: string): Promise<void> {

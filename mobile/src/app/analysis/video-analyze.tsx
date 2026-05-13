@@ -1,7 +1,16 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  BackHandler,
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -37,6 +46,10 @@ export default function VideoAnalyzeScreen() {
   const [running, setRunning] = useState(false);
   const navigatedRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
+  // QC fix: 중복 onStart 호출 가드 (사용자 더블 탭 → 동시 SquatTracker 두 개 분석)
+  const startingRef = useRef(false);
+  // QC fix: setTimeout id ref — mvId 변경/unmount 시 clear (detached navigation 방지)
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mvId = session.selectedMvId;
   const movement = AppConfig.MOVEMENTS.find((m) => m.id === mvId);
@@ -46,11 +59,39 @@ export default function VideoAnalyzeScreen() {
   /* mvId 변경 시 화면 state 초기화 */
   useEffect(() => {
     navigatedRef.current = false;
+    startingRef.current = false;
     setVideoUri(null);
     setVideoDuration(0);
     setProgress(null);
     setRunning(false);
+    // QC fix: pending navigation timeout 정리 (detached navigation 방지)
+    if (navTimeoutRef.current) {
+      clearTimeout(navTimeoutRef.current);
+      navTimeoutRef.current = null;
+    }
   }, [mvId]);
+
+  /* QC fix: unmount 시 pending timeout + abort 정리 */
+  useEffect(() => {
+    return () => {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  /* QC fix: Android hardware back — 분석 중이면 abort + 화면 유지, 아니면 기본 */
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (running) {
+        abortRef.current?.abort();
+        setRunning(false);
+        setProgress(null);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [running]);
 
   /* 큐 컨텍스트 검증 */
   useEffect(() => {
@@ -64,7 +105,15 @@ export default function VideoAnalyzeScreen() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('권한 필요', '갤러리 영상 분석을 위해 라이브러리 접근 권한이 필요합니다.');
+        // QC fix: 권한 거부 시 설정 열기 옵션 제공 (canAskAgain=false 케이스 대응)
+        Alert.alert(
+          '권한 필요',
+          '갤러리 영상 분석을 위해 라이브러리 접근 권한이 필요합니다.',
+          [
+            { text: '취소', style: 'cancel' },
+            { text: '설정 열기', onPress: () => Linking.openSettings() },
+          ],
+        );
         return;
       }
       const r = await ImagePicker.launchImageLibraryAsync({
@@ -76,7 +125,7 @@ export default function VideoAnalyzeScreen() {
       if (r.canceled || !r.assets?.[0]) return;
       const asset = r.assets[0];
       setVideoUri(asset.uri);
-      // duration은 seconds 단위로 들어옴 (image-picker)
+      // expo-image-picker duration은 milliseconds 단위 (이전 코멘트 잘못 표기 수정)
       const durMs = asset.duration ? Math.round(asset.duration) : 0;
       setVideoDuration(durMs);
     } catch (err) {
@@ -87,7 +136,9 @@ export default function VideoAnalyzeScreen() {
   };
 
   const onStart = async () => {
-    if (!videoUri || running) return;
+    // QC fix: 동기적 ref 가드 (사용자 빠른 더블탭 → 동시 SquatTracker 충돌 방지)
+    if (!videoUri || running || startingRef.current) return;
+    startingRef.current = true;
     setRunning(true);
     setProgress({ phase: 'extracting', current: 0, total: 0 });
     abortRef.current = new AbortController();
@@ -108,31 +159,42 @@ export default function VideoAnalyzeScreen() {
       }
     };
 
-    const result = await analyzeVideoFile({
-      videoUri,
-      videoDurationMs: videoDuration,
-      onProgress: onProgressThrottled,
-      signal: abortRef.current.signal,
-    });
+    // QC fix: analyzeVideoFile 전체를 try/catch/finally로 감싸 native 모듈 sync throw 회복
+    try {
+      const result = await analyzeVideoFile({
+        videoUri,
+        videoDurationMs: videoDuration,
+        onProgress: onProgressThrottled,
+        signal: abortRef.current.signal,
+      });
 
-    setRunning(false);
+      if (!result.ok) {
+        Alert.alert('분석 실패', result.error);
+        setProgress(null);
+        return;
+      }
 
-    if (!result.ok) {
-      Alert.alert('분석 실패', result.error);
-      setProgress(null);
-      return;
-    }
+      if (result.frameCount === 0) {
+        Alert.alert(
+          '영상에서 사람 자세를 감지하지 못했어요',
+          '전신이 잘 보이는 영상으로 다시 시도해주세요. (옷·배경 대비, 카메라 거리, 조명 점검)',
+        );
+        setProgress(null);
+        return;
+      }
 
-    if (result.frameCount === 0) {
+      finishStep();
+    } catch (err) {
+      if (__DEV__) console.warn('[video-analyze] onStart failed:', err);
       Alert.alert(
-        '랜드마크 검출 실패',
-        '영상에서 사람 자세를 감지하지 못했습니다. 전신이 잘 보이는 영상으로 다시 시도해주세요.',
+        '분석 중 오류가 발생했어요',
+        (err as Error)?.message ?? '잠시 후 다시 시도해주세요.',
       );
       setProgress(null);
-      return;
+    } finally {
+      setRunning(false);
+      startingRef.current = false;
     }
-
-    finishStep();
   };
 
   const finishStep = () => {
@@ -143,7 +205,8 @@ export default function VideoAnalyzeScreen() {
     if (mvId) SH.saveCurrentResult(mvId, finalResult);
     const next = SH.advanceQueue();
 
-    setTimeout(() => {
+    navTimeoutRef.current = setTimeout(() => {
+      navTimeoutRef.current = null;
       if (!next) {
         const sess = useAnalysisStore.getState().session;
         const suppId = decideSupplementTest(

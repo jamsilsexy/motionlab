@@ -18,21 +18,26 @@ service firebase.storage {
 
     /* members/{ownerUid}/{memberId}/photos/{fileName}
        트레이너의 회원 체형 사진 — 본인(트레이너)만 읽기/쓰기 가능
-       타 트레이너는 절대 접근 불가 (개인정보보호) */
+       타 트레이너는 절대 접근 불가 (개인정보보호)
+       QC fix: write가 create+update+delete를 모두 포괄해 delete 시 request.resource가 null
+         이면 size/contentType 체크가 throw → 회원 삭제 시 사진이 영구 고아 파일로 남는
+         문제 발생. create/update/delete 분리. */
     match /members/{ownerUid}/{memberId}/photos/{fileName} {
       allow read: if isOwner(ownerUid) || isAdmin();
-      allow write: if isOwner(ownerUid)
-                   && request.resource.size < 10 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow create, update: if isOwner(ownerUid)
+                            && request.resource.size < 10 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+      allow delete: if isOwner(ownerUid) || isAdmin();
     }
 
     /* analyses/{ownerUid}/{analysisId}/{fileName}
-       분석 결과 첨부 (분석 시 캡처된 프레임 등) */
+       분석 결과 첨부 (분석 시 캡처된 프레임 등) — delete 동일 정책 */
     match /analyses/{ownerUid}/{analysisId}/{fileName} {
       allow read: if isOwner(ownerUid) || isAdmin();
-      allow write: if isOwner(ownerUid)
-                   && request.resource.size < 10 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow create, update: if isOwner(ownerUid)
+                            && request.resource.size < 10 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+      allow delete: if isOwner(ownerUid) || isAdmin();
     }
 
     /* 명시되지 않은 모든 경로 차단 */
