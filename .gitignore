@@ -16,3 +16,6 @@ index.html
 
 # 작업 패치 파일
 *.patch
+
+# Claude Code worktrees / 세션 캐시
+.claude/
